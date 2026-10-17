@@ -1,0 +1,77 @@
+name: gastro3d
+
+services:
+  postgres:
+    container_name: gastro3d_postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-gastro3d}
+      POSTGRES_USER: ${DB_USERNAME:-gastro3d_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gastro3d_password}
+    ports:
+      - "${DB_EXTERNAL_PORT:-5433}:5432"
+    volumes:
+      - gastro3d_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-gastro3d_user} -d ${DB_DATABASE:-gastro3d}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gastro3d_network
+
+  backend:
+    container_name: gastro3d_backend
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      APP_NAME: Gastro3D
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-gastro3d}
+      DB_USERNAME: ${DB_USERNAME:-gastro3d_user}
+      DB_PASSWORD: ${DB_PASSWORD:-gastro3d_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gastro3d_network
+
+  frontend:
+    container_name: gastro3d_frontend
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+    depends_on:
+      - backend
+    networks:
+      - gastro3d_network
+
+volumes:
+  gastro3d_pgdata:
+    name: gastro3d_pgdata
+
+networks:
+  gastro3d_network:
+    name: gastro3d_network
+    driver: bridge
