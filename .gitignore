@@ -41,6 +41,8 @@
 # Docker and local storage
 docker/postgres/data/
 docker-compose.override.yml
+backups/
+*.sql
 
 # Logs and debugging
 npm-debug.log*

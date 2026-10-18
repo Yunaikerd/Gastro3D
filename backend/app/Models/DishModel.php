@@ -37,4 +37,62 @@ class DishModel extends Model
         'file_size_bytes' => 'integer',
         'meta' => 'array',
     ];
+
+    /**
+     * All generations / versions associated with this dish.
+     */
+    public function generations()
+    {
+        return $this->hasMany(DishGeneration::class, 'dish_model_id')->orderBy('version_number', 'asc');
+    }
+
+    /**
+     * The currently active generation / version.
+     */
+    public function activeGeneration()
+    {
+        return $this->hasOne(DishGeneration::class, 'dish_model_id')->where('is_active', true);
+    }
+
+    /**
+     * Helper to create a new generation version for this dish with transaction and concurrency control.
+     */
+    public function createNewVersion(array $attributes): DishGeneration
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($attributes) {
+            // Lock parent dish to prevent concurrent version numbering race condition
+            $dish = static::where('id', $this->id)->lockForUpdate()->first();
+
+            // Lock existing child generations for update
+            $dish->generations()->lockForUpdate()->pluck('id');
+
+            $nextVersion = ((int) $dish->generations()->max('version_number')) + 1;
+            $makeActive = $attributes['is_active'] ?? true;
+            $modelVersion = $attributes['model_version'] ?? $dish->model_version ?? 'v3.1-20260211';
+
+            if ($makeActive) {
+                $dish->generations()->update(['is_active' => false]);
+            }
+
+            $generation = $dish->generations()->create(array_merge($attributes, [
+                'version_number' => $nextVersion,
+                'model_version' => $modelVersion,
+                'is_active' => $makeActive,
+            ]));
+
+            if ($makeActive) {
+                $dish->update([
+                    'status' => $generation->status,
+                    'progress' => $generation->progress,
+                    'glb_path' => $generation->glb_path,
+                    'glb_url' => $generation->glb_url,
+                    'thumbnail_url' => $generation->thumbnail_url,
+                    'tripo_task_id' => $generation->tripo_task_id,
+                    'model_version' => $generation->model_version,
+                ]);
+            }
+
+            return $generation;
+        });
+    }
 }
