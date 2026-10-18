@@ -7,6 +7,9 @@ interface ModelViewerProps {
   alt?: string;
   poster?: string;
   dishTitle?: string;
+  versionNumber?: number;
+  mode?: "standard" | "multiview";
+  textureQuality?: "standard" | "detailed";
 }
 
 export default function ModelViewer({
@@ -14,6 +17,9 @@ export default function ModelViewer({
   alt = "Modelo 3D de Comida",
   poster,
   dishTitle,
+  versionNumber,
+  mode,
+  textureQuality,
 }: ModelViewerProps) {
   const [loaded, setLoaded] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
@@ -53,6 +59,15 @@ export default function ModelViewer({
       <div className="viewer-header">
         <div className="viewer-title-group">
           <span className="viewer-badge">GLB 3D</span>
+          {versionNumber !== undefined && (
+            <span className="viewer-version-badge">v{versionNumber}</span>
+          )}
+          {mode && (
+            <span className="viewer-mode-badge">
+              {mode === "multiview" ? "Multivista" : "Estándar"}
+              {textureQuality === "detailed" ? " PBR" : ""}
+            </span>
+          )}
           <span className="viewer-dish-name">{dishTitle || "Plato 3D"}</span>
         </div>
         <div className="viewer-controls">
@@ -74,7 +89,7 @@ export default function ModelViewer({
           </button>
           <a
             href={src}
-            download={`${dishTitle || "plato"}.glb`}
+            download={`${dishTitle || "plato"}${versionNumber ? `_v${versionNumber}` : ""}.glb`}
             className="viewer-btn viewer-btn-download"
             title="Descargar archivo GLB"
           >

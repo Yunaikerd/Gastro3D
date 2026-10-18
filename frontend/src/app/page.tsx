@@ -2,60 +2,64 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import ModelViewer from "@/components/ModelViewer";
-
-interface TripoModelInfo {
-  id: string;
-  name: string;
-  description: string;
-  credits: number;
-  recommended: boolean;
-}
-
-interface DishModelData {
-  id: string;
-  title: string | null;
-  prompt: string | null;
-  original_filename: string | null;
-  image_path: string;
-  image_url: string;
-  mime_type: string | null;
-  file_size_bytes: number | null;
-  tripo_task_id: string | null;
-  model_version: string;
-  status: "pending" | "uploading" | "queued" | "running" | "success" | "failed" | "cancelled";
-  progress: number;
-  glb_path: string | null;
-  glb_url: string | null;
-  thumbnail_url: string | null;
-  error_message: string | null;
-  created_at: string;
-}
-
-interface HealthData {
-  status: string;
-  service: string;
-  timestamp: string;
-  database: {
-    status: string;
-    driver: string;
-    error: string | null;
-  };
-}
+import PhotographyGuide from "@/components/PhotographyGuide";
+import MultiviewSlotPicker, { SlotFileMap, SlotPreviewMap } from "@/components/MultiviewSlotPicker";
+import CostEstimatorCard from "@/components/CostEstimatorCard";
+import VersionManager from "@/components/VersionManager";
+import PhotoComparison from "@/components/PhotoComparison";
+import {
+  DishModelData,
+  DishGenerationData,
+  GenerationMode,
+  TextureQuality,
+  TripoModelInfo,
+  HealthData,
+  ViewAngle,
+} from "@/types/dish";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"generator" | "gallery" | "infrastructure">("generator");
 
-  // Form & Upload state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Mode & Quality Selector
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("multiview");
+  const [textureQuality, setTextureQuality] = useState<TextureQuality>("detailed");
+  const [selectedModel, setSelectedModel] = useState<string>("v3.1-20260211");
+
+  // New Version mode on existing dish
+  const [isAddingNewVersion, setIsAddingNewVersion] = useState(false);
+
+  // Form Fields
   const [dishTitle, setDishTitle] = useState("");
   const [dishPrompt, setDishPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState<string>("v3.1-20260211");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Active Dish state
+  // Standard Mode single file state
+  const [standardFile, setStandardFile] = useState<File | null>(null);
+  const [standardPreview, setStandardPreview] = useState<string | null>(null);
+  const standardInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Multiview Mode files state
+  const [multiviewFiles, setMultiviewFiles] = useState<SlotFileMap>({
+    front: null,
+    left: null,
+    right: null,
+    back: null,
+  });
+  const [multiviewPreviews, setMultiviewPreviews] = useState<SlotPreviewMap>({
+    front: null,
+    left: null,
+    right: null,
+    back: null,
+  });
+
+  // Active Dish & Versions State
   const [activeDish, setActiveDish] = useState<DishModelData | null>(null);
+  const [dishVersions, setDishVersions] = useState<DishGenerationData[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<DishGenerationData | null>(null);
+  const [activatingVersion, setActivatingVersion] = useState(false);
+
+  // Generation Modal & Action State
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -73,7 +77,6 @@ export default function Home() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
   // Check Tripo V3 Balance
@@ -137,69 +140,134 @@ export default function Home() {
     }
   }, [apiUrl]);
 
+  // Fetch Versions for a specific dish
+  const fetchVersionsForDish = useCallback(
+    async (dishId: string) => {
+      try {
+        const res = await fetch(`${apiUrl}/dishes/${dishId}/versions`, { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setDishVersions(json.data);
+            // Select active or latest version
+            const activeVer = json.data.find((v: DishGenerationData) => v.is_active) || json.data[0];
+            setSelectedVersion(activeVer || null);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching dish versions:", err);
+      }
+    },
+    [apiUrl]
+  );
+
   useEffect(() => {
     checkHealth();
     fetchBalance();
     fetchDishes();
   }, [checkHealth, fetchBalance, fetchDishes]);
 
-  // Polling for active dish progress if it's currently running in Tripo AI V3
+  // Sequential Non-Overlapping Polling Loop
   useEffect(() => {
     if (!activeDish) return;
-    if (!["uploading", "queued", "running"].includes(activeDish.status)) return;
 
-    let isMounted = true;
+    // Determine target version or dish to poll
+    const targetStatus = selectedVersion ? selectedVersion.status : activeDish.status;
+    if (!["uploading", "queued", "running"].includes(targetStatus)) return;
+
+    let isCancelled = false;
     let timerId: NodeJS.Timeout | null = null;
     const dishId = activeDish.id;
+    const versionId = selectedVersion?.id;
 
     const pollStatus = async () => {
-      if (!isMounted) return;
+      if (isCancelled) return;
 
       try {
-        const res = await fetch(`${apiUrl}/dishes/${dishId}/status`, { cache: "no-store" });
-        if (res.ok && isMounted) {
+        const url = versionId
+          ? `${apiUrl}/dishes/${dishId}/versions/${versionId}/status`
+          : `${apiUrl}/dishes/${dishId}/status`;
+
+        const res = await fetch(url, { cache: "no-store" });
+        if (res.ok && !isCancelled) {
           const result = await res.json();
           if (result.success && result.data) {
-            const updated = result.data as DishModelData;
-            setActiveDish(updated);
-            setDishes((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+            if (versionId) {
+              const updatedGen = result.data as DishGenerationData;
+              setSelectedVersion(updatedGen);
+              setDishVersions((prev) =>
+                prev.map((v) => (v.id === updatedGen.id ? updatedGen : v))
+              );
 
-            if (["success", "failed", "cancelled"].includes(updated.status)) {
+              // Update activeDish parent fields if active
+              if (updatedGen.is_active) {
+                setActiveDish((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        status: updatedGen.status,
+                        progress: updatedGen.progress,
+                        glb_path: updatedGen.glb_path,
+                        glb_url: updatedGen.glb_url,
+                        thumbnail_url: updatedGen.thumbnail_url,
+                        tripo_task_id: updatedGen.tripo_task_id,
+                      }
+                    : null
+                );
+              }
+            } else {
+              const updatedDish = result.data as DishModelData;
+              setActiveDish(updatedDish);
+              setDishes((prev) => prev.map((d) => (d.id === updatedDish.id ? updatedDish : d)));
+            }
+
+            // Stop polling on terminal statuses
+            if (["success", "failed", "cancelled"].includes(result.data.status)) {
               fetchDishes();
               fetchBalance();
-              return; // Stop polling loop on terminal status
+              if (versionId) fetchVersionsForDish(dishId);
+              return;
             }
           }
         }
       } catch (err) {
-        console.error("Polling error:", err);
+        console.error("Safe polling warning:", err);
       }
 
-      // Schedule next poll 5 seconds AFTER current request finishes
-      if (isMounted) {
-        timerId = setTimeout(pollStatus, 5000);
+      // Schedule next poll strictly 4 seconds AFTER the previous one finished
+      if (!isCancelled) {
+        timerId = setTimeout(pollStatus, 4000);
       }
     };
 
-    // First poll after 4 seconds
-    timerId = setTimeout(pollStatus, 4000);
+    // First poll after 3.5 seconds
+    timerId = setTimeout(pollStatus, 3500);
 
     return () => {
-      isMounted = false;
+      isCancelled = true;
       if (timerId) clearTimeout(timerId);
     };
-  }, [activeDish?.id, activeDish?.status, apiUrl, fetchDishes, fetchBalance]);
+  }, [
+    activeDish?.id,
+    selectedVersion?.id,
+    selectedVersion?.status,
+    activeDish?.status,
+    apiUrl,
+    fetchDishes,
+    fetchBalance,
+    fetchVersionsForDish,
+  ]);
 
-  // Handle file picker
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Standard File selection
+  const handleStandardFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
         setUploadError("La imagen no debe superar los 10 MB.");
         return;
       }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setStandardFile(file);
+      setStandardPreview(URL.createObjectURL(file));
       setUploadError(null);
       if (!dishTitle) {
         setDishTitle(file.name.replace(/\.[^/.]+$/, ""));
@@ -207,7 +275,7 @@ export default function Home() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleStandardDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
@@ -215,8 +283,8 @@ export default function Home() {
         setUploadError("La imagen no debe superar los 10 MB.");
         return;
       }
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setStandardFile(file);
+      setStandardPreview(URL.createObjectURL(file));
       setUploadError(null);
       if (!dishTitle) {
         setDishTitle(file.name.replace(/\.[^/.]+$/, ""));
@@ -224,46 +292,123 @@ export default function Home() {
     }
   };
 
-  const clearSelectedFile = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const clearStandardFile = () => {
+    setStandardFile(null);
+    setStandardPreview(null);
+    if (standardInputRef.current) standardInputRef.current.value = "";
   };
 
-  // Upload photo to Laravel backend (0 credits consumed)
-  const handleUploadPhoto = async (e: React.FormEvent) => {
+  // Handle Multiview Slots
+  const handleMultiviewSlotChange = (angle: ViewAngle, file: File | null) => {
+    setMultiviewFiles((prev) => ({ ...prev, [angle]: file }));
+    setMultiviewPreviews((prev) => ({
+      ...prev,
+      [angle]: file ? URL.createObjectURL(file) : null,
+    }));
+    setUploadError(null);
+    if (file && angle === "front" && !dishTitle) {
+      setDishTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
+  };
+
+  // Submit Upload Form (0 credits consumed)
+  const handleUploadDish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile) {
-      setUploadError("Por favor selecciona una fotografía de un plato.");
-      return;
+    setUploadError(null);
+
+    // Validation
+    if (generationMode === "standard") {
+      if (!standardFile) {
+        setUploadError("Por favor selecciona una fotografía del plato.");
+        return;
+      }
+    } else {
+      if (!multiviewFiles.front) {
+        setUploadError("La vista frontal es obligatoria para la generación multivista.");
+        return;
+      }
+      const totalLoaded = Object.values(multiviewFiles).filter(Boolean).length;
+      if (totalLoaded < 2) {
+        setUploadError("Debes cargar al menos 2 fotografías (Frontal + al menos 1 lateral o trasera).");
+        return;
+      }
     }
 
     setUploading(true);
-    setUploadError(null);
-
-    const formData = new FormData();
-    formData.append("image", selectedFile);
-    if (dishTitle.trim()) formData.append("title", dishTitle.trim());
-    if (dishPrompt.trim()) formData.append("prompt", dishPrompt.trim());
-    formData.append("model_version", selectedModel);
 
     try {
-      const res = await fetch(`${apiUrl}/dishes/upload`, {
+      let endpoint = `${apiUrl}/dishes/upload`;
+      const formData = new FormData();
+
+      if (isAddingNewVersion && activeDish) {
+        // Adding a new version to an existing dish
+        endpoint = `${apiUrl}/dishes/${activeDish.id}/versions`;
+        formData.append("mode", generationMode);
+        formData.append("model_version", selectedModel);
+        formData.append("texture_quality", textureQuality);
+
+        if (generationMode === "standard" && standardFile) {
+          formData.append("images[front]", standardFile);
+        } else {
+          (["front", "left", "right", "back"] as ViewAngle[]).forEach((angle) => {
+            const f = multiviewFiles[angle];
+            if (f) formData.append(`images[${angle}]`, f);
+          });
+        }
+      } else {
+        // Creating a new Dish
+        if (generationMode === "multiview") {
+          endpoint = `${apiUrl}/dishes/multiview`;
+          if (dishTitle.trim()) formData.append("name", dishTitle.trim());
+          if (dishPrompt.trim()) formData.append("prompt", dishPrompt.trim());
+          formData.append("model_version", selectedModel);
+          formData.append("texture_quality", textureQuality);
+
+          (["front", "left", "right", "back"] as ViewAngle[]).forEach((angle) => {
+            const f = multiviewFiles[angle];
+            if (f) formData.append(`images[${angle}]`, f);
+          });
+        } else {
+          // Standard single photo
+          endpoint = `${apiUrl}/dishes/upload`;
+          if (standardFile) formData.append("image", standardFile);
+          if (dishTitle.trim()) formData.append("title", dishTitle.trim());
+          if (dishPrompt.trim()) formData.append("prompt", dishPrompt.trim());
+          formData.append("model_version", selectedModel);
+        }
+      }
+
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
 
       const result = await res.json();
       if (!res.ok || !result.success) {
-        throw new Error(result.message || "Error al subir la fotografía.");
+        throw new Error(result.message || "Error al registrar las fotografías del plato.");
       }
 
-      setActiveDish(result.data);
-      clearSelectedFile();
+      if (isAddingNewVersion && activeDish) {
+        // New version created
+        const createdVer = result.data as DishGenerationData;
+        setSelectedVersion(createdVer);
+        await fetchVersionsForDish(activeDish.id);
+        setIsAddingNewVersion(false);
+      } else {
+        // New dish created
+        const createdDish = result.data as DishModelData;
+        setActiveDish(createdDish);
+        await fetchVersionsForDish(createdDish.id);
+      }
+
+      // Reset form states
+      clearStandardFile();
+      setMultiviewFiles({ front: null, left: null, right: null, back: null });
+      setMultiviewPreviews({ front: null, left: null, right: null, back: null });
       setDishPrompt("");
       fetchDishes();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error de conexión al subir la imagen";
+      const msg = err instanceof Error ? err.message : "Error de conexión al guardar el plato.";
       setUploadError(msg);
     } finally {
       setUploading(false);
@@ -277,10 +422,20 @@ export default function Home() {
     setGenerating(true);
 
     try {
-      const res = await fetch(`${apiUrl}/dishes/${activeDish.id}/generate`, {
+      let endpoint = `${apiUrl}/dishes/${activeDish.id}/generate`;
+      let payload: Record<string, any> = { model_version: selectedModel };
+
+      if (selectedVersion) {
+        endpoint = `${apiUrl}/dishes/${activeDish.id}/versions/${selectedVersion.id}/generate`;
+        payload = {
+          texture_quality: selectedVersion.texture_quality || textureQuality,
+        };
+      }
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model_version: selectedModel }),
+        body: JSON.stringify(payload),
       });
 
       const result = await res.json();
@@ -288,21 +443,67 @@ export default function Home() {
         throw new Error(result.message || "Error al iniciar la generación en Tripo AI V3.");
       }
 
-      setActiveDish(result.data);
+      if (selectedVersion && result.data?.version_number) {
+        setSelectedVersion(result.data);
+      } else {
+        setActiveDish(result.data);
+      }
+
       fetchDishes();
       fetchBalance();
+      if (activeDish.id) fetchVersionsForDish(activeDish.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al comunicarse con Tripo AI V3";
-      setActiveDish((prev) => (prev ? { ...prev, status: "failed", error_message: msg } : null));
+      if (selectedVersion) {
+        setSelectedVersion((prev) =>
+          prev ? { ...prev, status: "failed", error_message: msg } : null
+        );
+      } else {
+        setActiveDish((prev) =>
+          prev ? { ...prev, status: "failed", error_message: msg } : null
+        );
+      }
     } finally {
       setGenerating(false);
     }
   };
 
-  // Select dish from gallery with fresh backend fetch
+  // Activate Version
+  const handleActivateVersion = async (versionId: string) => {
+    if (!activeDish) return;
+    setActivatingVersion(true);
+    try {
+      const res = await fetch(
+        `${apiUrl}/dishes/${activeDish.id}/versions/${versionId}/activate`,
+        {
+          method: "POST",
+        }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          await fetchVersionsForDish(activeDish.id);
+          // Refetch active dish
+          const dishRes = await fetch(`${apiUrl}/dishes/${activeDish.id}`);
+          if (dishRes.ok) {
+            const dJson = await dishRes.json();
+            if (dJson.success) setActiveDish(dJson.data);
+          }
+          fetchDishes();
+        }
+      }
+    } catch (err) {
+      console.error("Error activating version:", err);
+    } finally {
+      setActivatingVersion(false);
+    }
+  };
+
+  // Select dish from gallery
   const handleSelectDishFromGallery = async (dish: DishModelData) => {
     setActiveDish(dish);
     setActiveTab("generator");
+    setIsAddingNewVersion(false);
     try {
       const res = await fetch(`${apiUrl}/dishes/${dish.id}`, { cache: "no-store" });
       if (res.ok) {
@@ -311,6 +512,7 @@ export default function Home() {
           const fresh = json.data as DishModelData;
           setActiveDish(fresh);
           setDishes((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
+          await fetchVersionsForDish(fresh.id);
         }
       }
     } catch (err) {
@@ -318,32 +520,22 @@ export default function Home() {
     }
   };
 
-  const getStatusBadge = (status: DishModelData["status"]) => {
-    switch (status) {
-      case "success":
-        return <span className="status-badge success">● Modelo 3D Listo</span>;
-      case "failed":
-        return <span className="status-badge failed">● Fallido</span>;
-      case "running":
-        return <span className="status-badge running">● Procesando con IA V3</span>;
-      case "queued":
-        return <span className="status-badge queued">● En Cola V3</span>;
-      case "uploading":
-        return <span className="status-badge uploading">● Subiendo a Tripo V3</span>;
-      case "pending":
-      default:
-        return <span className="status-badge pending">● Pendiente de Generar</span>;
-    }
-  };
+  const currentDisplayTarget = selectedVersion || activeDish;
+  const currentStatus = currentDisplayTarget?.status || "pending";
+  const currentProgress = currentDisplayTarget?.progress ?? 0;
 
-  // Calculate required credits for selected model
-  const currentModelObj = availableModels.find((m) => m.id === selectedModel) || {
-    id: "v3.1-20260211",
-    name: "Tripo v3.1 (Máxima Calidad)",
-    credits: 30,
-  };
-  const requiredCredits = currentModelObj.credits;
+  // Credit cost logic
+  const requiredCredits =
+    generationMode === "multiview" && textureQuality === "detailed" ? 40 : 30;
   const hasSufficientBalance = balance !== null && balance >= requiredCredits;
+
+  // GLB Model URL for active view
+  const currentGlbUrl =
+    activeDish && selectedVersion?.status === "success"
+      ? `${apiUrl}/dishes/${activeDish.id}/versions/${selectedVersion.id}/model`
+      : activeDish?.status === "success"
+      ? `${apiUrl}/dishes/${activeDish.id}/model`
+      : null;
 
   return (
     <main className="container">
@@ -361,7 +553,6 @@ export default function Home() {
 
         {/* Balance Badge and Tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-          {/* Tripo V3 Balance Badge */}
           <div
             className={`balance-badge ${
               balance === null
@@ -385,14 +576,21 @@ export default function Home() {
                 : "Sin verificar"}
             </span>
             {frozenCredits > 0 && (
-              <span style={{ fontSize: "0.75rem", color: "#fbbf24", background: "rgba(251, 191, 36, 0.15)", padding: "2px 6px", borderRadius: "4px" }}>
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#fbbf24",
+                  background: "rgba(251, 191, 36, 0.15)",
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                }}
+              >
                 🔒 {frozenCredits.toFixed(0)} retenidos
               </span>
             )}
             <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>↺</span>
           </div>
 
-          {/* Navigation Tabs */}
           <nav className="nav-tabs">
             <button
               className={`nav-tab ${activeTab === "generator" ? "active" : ""}`}
@@ -426,217 +624,377 @@ export default function Home() {
       {/* TAB 1: GENERADOR 3D */}
       {activeTab === "generator" && (
         <section className="generator-layout">
-          {/* Col 1: Formulario de Subida y Control */}
+          {/* Col 1: Formulario y Versiones */}
           <div className="glass-card">
-            <h2 className="card-title-main">1. Fotografía y Modelo de IA</h2>
+            {/* If adding new version banner */}
+            {isAddingNewVersion && activeDish && (
+              <div
+                style={{
+                  background: "rgba(249, 115, 22, 0.12)",
+                  border: "1px solid rgba(249, 115, 22, 0.35)",
+                  padding: "0.75rem 1rem",
+                  borderRadius: "10px",
+                  marginBottom: "1.25rem",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <strong style={{ color: "#fdba74", fontSize: "0.88rem" }}>
+                    Creando Nueva Versión para: &quot;{activeDish.title}&quot;
+                  </strong>
+                  <p style={{ fontSize: "0.74rem", color: "var(--text-muted)", margin: 0 }}>
+                    La versión anterior no se perderá ni sobrescribirá.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="viewer-btn"
+                  onClick={() => setIsAddingNewVersion(false)}
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
+            <h2 className="card-title-main">
+              {isAddingNewVersion ? "Subir Fotos para Nueva Versión" : "1. Fotografías y Calidad 3D"}
+            </h2>
             <p className="card-subtitle">
-              Sube la fotografía de tu plato y selecciona el motor de IA Tripo V3 según calidad y consumo.
+              Elige entre generación rápida estándar o alta fidelidad multivista con texturas PBR.
             </p>
 
-            <form onSubmit={handleUploadPhoto}>
-              {/* Dropzone */}
-              {!previewUrl ? (
-                <div
-                  className="dropzone"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/jpeg,image/png,image/webp"
-                    style={{ display: "none" }}
-                  />
-                  <div className="dropzone-icon">📷</div>
-                  <p className="dropzone-text">Arrastra una fotografía aquí o haz clic para explorar</p>
-                  <span className="dropzone-hint">Formatos: JPG, PNG, WEBP (Máx. 10MB)</span>
-                </div>
+            {/* Mode Switcher Segmented Control */}
+            <div className="mode-segmented-control">
+              <button
+                type="button"
+                className={`mode-segment-btn ${generationMode === "multiview" ? "active" : ""}`}
+                onClick={() => setGenerationMode("multiview")}
+              >
+                <span>🌟 Alta Calidad Multivista</span>
+                <span className="mode-badge-rec">Recomendado</span>
+              </button>
+
+              <button
+                type="button"
+                className={`mode-segment-btn ${generationMode === "standard" ? "active" : ""}`}
+                onClick={() => setGenerationMode("standard")}
+              >
+                <span>📸 Estándar (1 Foto)</span>
+              </button>
+            </div>
+
+            {/* Culinary Photography Guide */}
+            <PhotographyGuide />
+
+            <form onSubmit={handleUploadDish}>
+              {/* Multiview Mode: 4 designated slots */}
+              {generationMode === "multiview" ? (
+                <MultiviewSlotPicker
+                  files={multiviewFiles}
+                  previews={multiviewPreviews}
+                  onSlotChange={handleMultiviewSlotChange}
+                  disabled={uploading}
+                />
               ) : (
-                <div className="preview-container">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="Vista previa de plato" className="preview-img" />
-                  <div className="preview-overlay">
-                    <button type="button" className="remove-btn" onClick={clearSelectedFile}>
-                      Cambiar foto
-                    </button>
-                  </div>
+                /* Standard Mode: Single Dropzone */
+                <div style={{ marginBottom: "1.25rem" }}>
+                  {!standardPreview ? (
+                    <div
+                      className="dropzone"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleStandardDrop}
+                      onClick={() => standardInputRef.current?.click()}
+                    >
+                      <input
+                        type="file"
+                        ref={standardInputRef}
+                        onChange={handleStandardFileChange}
+                        accept="image/jpeg,image/png,image/webp"
+                        style={{ display: "none" }}
+                      />
+                      <div className="dropzone-icon">📷</div>
+                      <p className="dropzone-text">
+                        Arrastra una fotografía aquí o haz clic para explorar
+                      </p>
+                      <span className="dropzone-hint">
+                        Formatos: JPG, PNG, WEBP (Máx. 10MB)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="preview-container">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={standardPreview}
+                        alt="Vista previa de plato"
+                        className="preview-img"
+                      />
+                      <div className="preview-overlay">
+                        <button
+                          type="button"
+                          className="remove-btn"
+                          onClick={clearStandardFile}
+                        >
+                          Cambiar foto
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Form fields */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="dish-title">
-                  Nombre del Plato
-                </label>
-                <input
-                  id="dish-title"
-                  type="text"
-                  className="form-input"
-                  placeholder="Ej. Ceviche Clásico Peruano"
-                  value={dishTitle}
-                  onChange={(e) => setDishTitle(e.target.value)}
-                />
-              </div>
+              {/* Dish Title & Description (Only if not adding version to existing dish) */}
+              {!isAddingNewVersion && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="dish-title">
+                      Nombre del Plato
+                    </label>
+                    <input
+                      id="dish-title"
+                      type="text"
+                      className="form-input"
+                      placeholder="Ej. Hamburguesa Artesanal con Papas Rústicas"
+                      value={dishTitle}
+                      onChange={(e) => setDishTitle(e.target.value)}
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label" htmlFor="dish-prompt">
-                  Descripción o Notas Culinarias (Opcional)
-                </label>
-                <input
-                  id="dish-prompt"
-                  type="text"
-                  className="form-input"
-                  placeholder="Ej. Pescado fresco, maíz choclo y camote en plato blanco"
-                  value={dishPrompt}
-                  onChange={(e) => setDishPrompt(e.target.value)}
-                />
-              </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="dish-prompt">
+                      Descripción o Notas Culinarias (Opcional)
+                    </label>
+                    <input
+                      id="dish-prompt"
+                      type="text"
+                      className="form-input"
+                      placeholder="Ej. Pan brioche dorado, carne sellada a la parrilla, queso cheddar fundido"
+                      value={dishPrompt}
+                      onChange={(e) => setDishPrompt(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
 
-              {/* Model Version Selector */}
-              <div className="model-selector-group">
-                <label className="form-label">
-                  Versión del Motor de IA (Tripo V3) &middot; Calidad vs Coste
-                </label>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {availableModels.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`model-option-card ${selectedModel === m.id ? "selected" : ""}`}
-                      onClick={() => setSelectedModel(m.id)}
-                    >
-                      <div>
-                        <div className="model-name">
-                          {m.name}
-                          {m.recommended && <span className="model-badge-rec">Recomendado</span>}
-                        </div>
-                        <div className="model-desc">{m.description}</div>
-                      </div>
-                      <span className="model-cost-tag">{m.credits} créditos</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Dynamic Real-Time Cost Estimator */}
+              <CostEstimatorCard
+                mode={generationMode}
+                modelVersion={selectedModel}
+                textureQuality={textureQuality}
+                onTextureQualityChange={setTextureQuality}
+                userBalance={balance}
+                apiUrl={apiUrl}
+              />
 
               {uploadError && (
-                <div className="error-banner">
+                <div className="error-banner" style={{ marginBottom: "1rem" }}>
                   <span>{uploadError}</span>
-                  <button type="button" onClick={() => setUploadError(null)} style={{ background: "none", border: "none", color: "white", cursor: "pointer" }}>✕</button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadError(null)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "white",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
 
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={uploading || !selectedFile}
+                disabled={
+                  uploading ||
+                  (generationMode === "standard"
+                    ? !standardFile
+                    : !multiviewFiles.front ||
+                      Object.values(multiviewFiles).filter(Boolean).length < 2)
+                }
               >
                 {uploading ? (
                   <>
-                    <span className="viewer-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }} />
-                    <span>Guardando fotografía (Sin coste)...</span>
+                    <span
+                      className="viewer-spinner"
+                      style={{ width: "16px", height: "16px", borderWidth: "2px" }}
+                    />
+                    <span>
+                      {isAddingNewVersion
+                        ? "Registrando nueva versión (0 créditos)..."
+                        : "Guardando fotografías en Gastro3D (0 créditos)..."}
+                    </span>
                   </>
                 ) : (
                   <>
-                    <span>📤 Guardar Plato en Gastro3D (0 créditos)</span>
+                    <span>
+                      📤{" "}
+                      {isAddingNewVersion
+                        ? "Registrar Nueva Versión (0 créditos)"
+                        : "Guardar Plato en Gastro3D (0 créditos)"}
+                    </span>
                   </>
                 )}
               </button>
             </form>
 
-            {/* Current Active Dish status box */}
+            {/* Active Dish Progress and Version Manager */}
             {activeDish && (
-              <div className="progress-widget" style={{ marginTop: "1.75rem" }}>
-                <div className="progress-header">
-                  <span className="progress-label">
-                    <span>Plato Activo:</span>
-                    <strong>{activeDish.title || "Sin título"}</strong>
-                  </span>
-                  {getStatusBadge(activeDish.status)}
-                </div>
-
-                {/* Progress bar */}
-                <div className="progress-bar-bg">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${Math.max(activeDish.progress, 5)}%` }}
+              <div style={{ marginTop: "1.75rem" }}>
+                {/* Version Manager for current dish */}
+                {dishVersions.length > 0 && (
+                  <VersionManager
+                    versions={dishVersions}
+                    selectedVersionId={selectedVersion?.id || null}
+                    onSelectVersion={(v) => setSelectedVersion(v)}
+                    onActivateVersion={handleActivateVersion}
+                    onAddNewVersion={() => {
+                      setIsAddingNewVersion(true);
+                      window.scrollTo({ top: 120, behavior: "smooth" });
+                    }}
+                    activating={activatingVersion}
                   />
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.5rem" }}>
-                  <span className="progress-desc">
-                    {activeDish.status === "pending" && "Foto guardada. Revisa los créditos necesarios antes de generar."}
-                    {activeDish.status === "uploading" && "Subiendo fotografía a Tripo V3 (/v3/files)..."}
-                    {activeDish.status === "queued" && "En cola de renderizado en Tripo V3..."}
-                    {activeDish.status === "running" && `Generando malla y texturas PBR (${activeDish.progress}%)...`}
-                    {activeDish.status === "success" && "¡Generación completada! Modelo GLB almacenado localmente."}
-                    {activeDish.status === "failed" && `Error: ${activeDish.error_message || "Fallo en generación"}`}
-                  </span>
-                  <span className="progress-pct">{activeDish.progress}%</span>
-                </div>
-
-                {/* Action Button: Trigger Tripo AI Generation */}
-                {activeDish.status === "pending" && (
-                  <button
-                    type="button"
-                    className="btn-primary btn-generate"
-                    style={{ marginTop: "1rem" }}
-                    onClick={() => setShowConfirmModal(true)}
-                    disabled={generating}
-                  >
-                    <span>🚀 Iniciar Generación 3D (Tripo V3)</span>
-                  </button>
                 )}
 
-                {activeDish.status === "failed" && (
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    style={{ marginTop: "1rem", background: "rgba(239, 68, 68, 0.2)", border: "1px solid rgba(239, 68, 68, 0.4)" }}
-                    onClick={() => setShowConfirmModal(true)}
-                    disabled={generating}
+                {/* Status & Generation progress widget */}
+                <div className="progress-widget">
+                  <div className="progress-header">
+                    <span className="progress-label">
+                      <span>Plato:</span>
+                      <strong>{activeDish.title || "Sin título"}</strong>
+                      {selectedVersion && (
+                        <span style={{ color: "var(--accent-orange)", marginLeft: "0.4rem" }}>
+                          (v{selectedVersion.version_number})
+                        </span>
+                      )}
+                    </span>
+                    <span className={`status-badge ${currentStatus}`}>
+                      {currentStatus === "success" && "● Modelo 3D Listo"}
+                      {currentStatus === "running" && "● Procesando con IA V3"}
+                      {currentStatus === "queued" && "● En Cola V3"}
+                      {currentStatus === "uploading" && "● Subiendo a Tripo V3"}
+                      {currentStatus === "failed" && "● Fallido"}
+                      {currentStatus === "pending" && "● Pendiente de Generar"}
+                    </span>
+                  </div>
+
+                  <div className="progress-bar-bg">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${Math.max(currentProgress, 5)}%` }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "0.5rem",
+                    }}
                   >
-                    <span>↺ Reintentar Generación</span>
-                  </button>
-                )}
+                    <span className="progress-desc">
+                      {currentStatus === "pending" &&
+                        "Fotos registradas con éxito. Revisa el coste antes de iniciar la generación 3D."}
+                      {currentStatus === "uploading" &&
+                        "Sintetizando tokens y subiendo vistas al CDN de Tripo V3..."}
+                      {currentStatus === "queued" &&
+                        "En cola de renderizado volumétrico en Tripo V3..."}
+                      {currentStatus === "running" &&
+                        `Generando malla geométrica y mapas PBR (${currentProgress}%)...`}
+                      {currentStatus === "success" &&
+                        "¡Generación 3D completada! Modelo GLB almacenado localmente de forma persistente."}
+                      {currentStatus === "failed" &&
+                        `Error: ${currentDisplayTarget?.error_message || "Fallo en generación"}`}
+                    </span>
+                    <span className="progress-pct">{currentProgress}%</span>
+                  </div>
+
+                  {/* Generation Trigger Button */}
+                  {currentStatus === "pending" && (
+                    <button
+                      type="button"
+                      className="btn-primary btn-generate"
+                      style={{ marginTop: "1rem" }}
+                      onClick={() => setShowConfirmModal(true)}
+                      disabled={generating}
+                    >
+                      <span>
+                        🚀 Iniciar Generación 3D ({requiredCredits} créditos Tripo V3)
+                      </span>
+                    </button>
+                  )}
+
+                  {currentStatus === "failed" && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{
+                        marginTop: "1rem",
+                        background: "rgba(239, 68, 68, 0.2)",
+                        border: "1px solid rgba(239, 68, 68, 0.4)",
+                      }}
+                      onClick={() => setShowConfirmModal(true)}
+                      disabled={generating}
+                    >
+                      <span>↺ Reintentar Generación ({requiredCredits} créditos)</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Col 2: Visualizador 3D Interactivo */}
+          {/* Col 2: Visualizador 3D y Comparativa de Fotos */}
           <div className="glass-card" style={{ display: "flex", flexDirection: "column" }}>
-            <h2 className="card-title-main">2. Visualizador 3D Interactivo</h2>
+            <h2 className="card-title-main">2. Visualizador 3D y Comparativa</h2>
             <p className="card-subtitle">
-              Inspección en tiempo real con rotación 360°, zoom e iluminación interactiva con Google model-viewer.
+              Inspección interactiva 360°, zoom orbital y contraste con las fotografías originales.
             </p>
 
-            {activeDish?.status === "success" && activeDish.glb_url ? (
+            {currentGlbUrl ? (
               <ModelViewer
-                src={`${apiUrl}/dishes/${activeDish.id}/model`}
-                dishTitle={activeDish.title || "Plato 3D"}
-                poster={activeDish.thumbnail_url || activeDish.image_url}
+                src={currentGlbUrl}
+                dishTitle={activeDish?.title || "Plato 3D"}
+                poster={selectedVersion?.thumbnail_url || activeDish?.thumbnail_url || activeDish?.image_url}
+                versionNumber={selectedVersion?.version_number}
+                mode={selectedVersion?.mode}
+                textureQuality={selectedVersion?.texture_quality}
               />
             ) : (
               <div className="viewer-placeholder">
                 <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🧊</div>
                 <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "0.4rem" }}>
-                  {activeDish
-                    ? activeDish.status === "running" || activeDish.status === "queued" || activeDish.status === "uploading"
-                      ? "Generando modelo 3D con Tripo V3..."
-                      : "Esperando inicio de generación..."
-                    : "No hay ningún modelo 3D activo"}
+                  {currentStatus === "running" ||
+                  currentStatus === "queued" ||
+                  currentStatus === "uploading"
+                    ? "Generando modelo 3D con Tripo V3..."
+                    : "Esperando inicio de generación..."}
                 </h3>
                 <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", maxWidth: "380px" }}>
-                  {activeDish
-                    ? activeDish.status === "running"
-                      ? "Tripo AI V3 está sintetizando la geometría y mapas PBR. El visor cargará automáticamente al completarse."
-                      : "Presiona 'Iniciar Generación 3D' para enviar la imagen a Tripo V3."
-                    : "Sube una fotografía de un plato para visualizar su modelo 3D aquí con rotación orbital y zoom."}
+                  {currentStatus === "running"
+                    ? "Tripo AI V3 está calculando la geometría y mapas PBR. El visor cargará automáticamente el GLB al llegar al 100%."
+                    : "Presiona 'Iniciar Generación 3D' para procesar las fotografías con el motor de IA."}
                 </p>
-                {activeDish && (activeDish.status === "running" || activeDish.status === "queued") && (
+                {(currentStatus === "running" || currentStatus === "queued") && (
                   <div className="viewer-spinner" style={{ marginTop: "1.5rem" }} />
                 )}
               </div>
+            )}
+
+            {/* Original Photo Comparison Component */}
+            {activeDish && (
+              <PhotoComparison
+                views={selectedVersion?.views || [
+                  { angle: "front", image_url: activeDish.image_url },
+                ]}
+                fallbackUrl={activeDish.image_url}
+                dishTitle={activeDish.title || "Plato"}
+              />
             )}
           </div>
         </section>
@@ -645,11 +1003,20 @@ export default function Home() {
       {/* TAB 2: GALERÍA DE PLATOS */}
       {activeTab === "gallery" && (
         <section className="glass-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1.5rem",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+            }}
+          >
             <div>
               <h2 className="card-title-main">Galería de Platos Registrados</h2>
               <p className="card-subtitle" style={{ marginBottom: 0 }}>
-                Trabajos persistidos en la base de datos PostgreSQL de Gastro3D.
+                Modelos 3D y fotografías persistidos en la base de datos PostgreSQL de Gastro3D.
               </p>
             </div>
             <button
@@ -657,13 +1024,15 @@ export default function Home() {
               onClick={fetchDishes}
               disabled={loadingDishes}
             >
-              <span>{loadingDishes ? "Actualizando..." : "↺ Actualizar"}</span>
+              <span>{loadingDishes ? "Actualizando..." : "↺ Actualizar Galería"}</span>
             </button>
           </div>
 
           {dishes.length === 0 ? (
             <div className="viewer-placeholder" style={{ height: "260px" }}>
-              <p style={{ color: "var(--text-muted)" }}>Aún no has subido fotografías de platos.</p>
+              <p style={{ color: "var(--text-muted)" }}>
+                Aún no has registrado fotografías de platos.
+              </p>
             </div>
           ) : (
             <div className="gallery-grid">
@@ -682,7 +1051,13 @@ export default function Home() {
                   <div className="gallery-card-body">
                     <div className="gallery-card-title">{dish.title || "Sin título"}</div>
                     <div className="gallery-card-meta">
-                      {getStatusBadge(dish.status)}
+                      <span className={`status-badge ${dish.status}`}>
+                        {dish.status === "success" && "● 3D Listo"}
+                        {dish.status === "running" && "● Procesando"}
+                        {dish.status === "queued" && "● En Cola"}
+                        {dish.status === "pending" && "● Pendiente"}
+                        {dish.status === "failed" && "● Fallido"}
+                      </span>
                       <span>{new Date(dish.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
@@ -697,18 +1072,16 @@ export default function Home() {
       {activeTab === "infrastructure" && (
         <section style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <div className="cards-grid">
-            {/* Frontend Card */}
             <div className="glass-card">
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <strong>Next.js Frontend</strong>
                 <span className="status-badge online">● En Línea</span>
               </div>
               <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                React 19 &middot; TypeScript &middot; Google Model Viewer
+                React 19 &middot; TypeScript &middot; Multiview Controls &middot; Google Model Viewer
               </p>
             </div>
 
-            {/* Backend Card */}
             <div className="glass-card">
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <strong>Laravel Backend API</strong>
@@ -719,11 +1092,10 @@ export default function Home() {
                 )}
               </div>
               <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                PHP 8.4 CLI &middot; TripoService V3 &middot; OpenAPI v3 Endpoints
+                PHP 8.4 CLI &middot; TripoService V3 &middot; Multiview & Versioning Endpoints
               </p>
             </div>
 
-            {/* PostgreSQL Card */}
             <div className="glass-card">
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <strong>PostgreSQL Database</strong>
@@ -734,11 +1106,10 @@ export default function Home() {
                 )}
               </div>
               <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                Base de datos: gastro3d &middot; Tabla: dish_models
+                Tablas: dish_models &middot; dish_generations &middot; cache_locks
               </p>
             </div>
 
-            {/* Tripo V3 Account Card */}
             <div className="glass-card">
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
                 <strong>Cuenta Tripo AI (V3)</strong>
@@ -753,8 +1124,19 @@ export default function Home() {
           </div>
 
           <div style={{ textAlign: "center" }}>
-            <button className="viewer-btn" onClick={() => { checkHealth(); fetchBalance(); }} disabled={healthLoading || balanceLoading}>
-              <span>{healthLoading || balanceLoading ? "Verificando..." : "↺ Recomprobar Estado y Saldo"}</span>
+            <button
+              className="viewer-btn"
+              onClick={() => {
+                checkHealth();
+                fetchBalance();
+              }}
+              disabled={healthLoading || balanceLoading}
+            >
+              <span>
+                {healthLoading || balanceLoading
+                  ? "Verificando..."
+                  : "↺ Recomprobar Estado y Saldo"}
+              </span>
             </button>
           </div>
         </section>
@@ -768,43 +1150,84 @@ export default function Home() {
               <div className="modal-icon">{hasSufficientBalance ? "⚡" : "⚠️"}</div>
               <div>
                 <h3 className="modal-title">
-                  {hasSufficientBalance ? "Confirmar Generación 3D (V3)" : "Saldo Insuficiente en Tripo AI"}
+                  {hasSufficientBalance
+                    ? "Confirmar Generación 3D (Tripo V3)"
+                    : "Saldo Insuficiente en Tripo AI"}
                 </h3>
                 <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                  Motor: {currentModelObj.name}
+                  Modo: {generationMode === "multiview" ? "Multivista" : "Estándar"} &middot;{" "}
+                  {textureQuality === "detailed" ? "Textura PBR Detallada" : "Textura Estándar"}
                 </span>
               </div>
             </div>
 
             <p className="modal-body">
-              Estás a punto de procesar el plato <strong>&quot;{activeDish.title}&quot;</strong> con la API V3 de Tripo AI.
+              Estás a punto de procesar el plato{" "}
+              <strong>&quot;{activeDish.title}&quot;</strong> con la API V3 de Tripo AI.
             </p>
 
             {/* Credit Breakdown Table */}
-            <div style={{ background: "rgba(0,0,0,0.3)", padding: "0.9rem", borderRadius: "10px", display: "flex", flexDirection: "column", gap: "0.45rem", fontSize: "0.84rem" }}>
+            <div
+              style={{
+                background: "rgba(0,0,0,0.3)",
+                padding: "0.9rem",
+                borderRadius: "10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.45rem",
+                fontSize: "0.84rem",
+              }}
+            >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--text-muted)" }}>Saldo disponible (API Wallet):</span>
-                <strong style={{ fontFamily: "var(--font-mono)", color: hasSufficientBalance ? "#34d399" : "#f87171" }}>
+                <strong
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    color: hasSufficientBalance ? "#34d399" : "#f87171",
+                  }}
+                >
                   {balance !== null ? `${balance.toFixed(2)} créditos` : "Consultando..."}
                 </strong>
               </div>
+
               {frozenCredits > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "var(--text-muted)" }}>Créditos retenidos / en proceso:</span>
                   <span style={{ fontFamily: "var(--font-mono)", color: "#fbbf24" }}>
-                    {frozenCredits.toFixed(2)} créditos (no utilizables hasta liberarse)
+                    {frozenCredits.toFixed(2)} créditos
                   </span>
                 </div>
               )}
+
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Coste del modelo ({selectedModel}):</span>
-                <strong style={{ fontFamily: "var(--font-mono)", color: "var(--accent-orange)" }}>
+                <span style={{ color: "var(--text-muted)" }}>
+                  Coste del renderizado ({generationMode} &middot; {textureQuality}):
+                </span>
+                <strong
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--accent-orange)",
+                  }}
+                >
                   {requiredCredits} créditos
                 </strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "0.4rem" }}>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  borderTop: "1px solid rgba(255,255,255,0.08)",
+                  paddingTop: "0.4rem",
+                }}
+              >
                 <span style={{ color: "var(--text-muted)" }}>Saldo disponible posterior estimado:</span>
-                <strong style={{ fontFamily: "var(--font-mono)", color: hasSufficientBalance ? "#34d399" : "#f87171" }}>
+                <strong
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    color: hasSufficientBalance ? "#34d399" : "#f87171",
+                  }}
+                >
                   {balance !== null ? `${(balance - requiredCredits).toFixed(2)} créditos` : "N/A"}
                 </strong>
               </div>
@@ -815,8 +1238,11 @@ export default function Home() {
               <div className="insufficient-box">
                 <strong>🚫 Generación Bloqueada por Seguridad:</strong>
                 <span>
-                  No dispones de saldo suficiente en tu API Wallet de Tripo AI (Disponible: <strong>{balance?.toFixed(2) ?? "0.00"} créditos</strong>; necesarios: <strong>{requiredCredits} créditos</strong>).
-                  {frozenCredits > 0 && ` Hay ${frozenCredits.toFixed(0)} créditos retenidos o en proceso de acreditación.`}
+                  No dispones de saldo suficiente en tu API Wallet de Tripo AI (Disponible:{" "}
+                  <strong>{balance?.toFixed(2) ?? "0.00"} créditos</strong>; necesarios:{" "}
+                  <strong>{requiredCredits} créditos</strong>).
+                  {frozenCredits > 0 &&
+                    ` Hay ${frozenCredits.toFixed(0)} créditos retenidos o en proceso de acreditación.`}
                 </span>
                 <span>
                   Para evitar errores de cobro o llamadas fallidas, el botón de envío ha sido deshabilitado.
