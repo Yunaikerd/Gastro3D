@@ -4,14 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\DishModel;
 use App\Services\TripoService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class DishGenerationTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     public function test_health_check_returns_healthy_with_postgres(): void
     {

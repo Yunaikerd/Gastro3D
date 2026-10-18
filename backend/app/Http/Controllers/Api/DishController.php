@@ -284,14 +284,35 @@ class DishController extends Controller
                     $glbFilename = "models/{$dish->id}.glb";
                     $absoluteGlbPath = Storage::disk('public')->path($glbFilename);
 
-                    // Download and persist GLB locally
-                    $this->tripoService->downloadGlb($remoteModelUrl, $absoluteGlbPath);
+                    // Download and persist GLB locally only if not already downloaded
+                    if (!file_exists($absoluteGlbPath) || filesize($absoluteGlbPath) < 1000) {
+                        $this->tripoService->downloadGlb($remoteModelUrl, $absoluteGlbPath);
+                    }
 
                     $dish->glb_path = $glbFilename;
                     $dish->glb_url = asset('storage/' . $glbFilename);
                 }
 
-                $dish->thumbnail_url = $renderedImage ?? $dish->thumbnail_url;
+                if ($renderedImage) {
+                    $thumbFilename = "models/{$dish->id}_thumb.webp";
+                    $absoluteThumbPath = Storage::disk('public')->path($thumbFilename);
+                    if (!file_exists($absoluteThumbPath)) {
+                        try {
+                            $thumbResponse = \Illuminate\Support\Facades\Http::timeout(15)->get($renderedImage);
+                            if ($thumbResponse->successful()) {
+                                Storage::disk('public')->put($thumbFilename, $thumbResponse->body());
+                                $dish->thumbnail_url = asset('storage/' . $thumbFilename);
+                            } else {
+                                $dish->thumbnail_url = $renderedImage;
+                            }
+                        } catch (\Exception $e) {
+                            $dish->thumbnail_url = $renderedImage;
+                        }
+                    } else {
+                        $dish->thumbnail_url = asset('storage/' . $thumbFilename);
+                    }
+                }
+
                 $dish->status = 'success';
                 $dish->progress = 100;
                 $dish->error_message = null;

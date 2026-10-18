@@ -148,26 +148,47 @@ export default function Home() {
     if (!activeDish) return;
     if (!["uploading", "queued", "running"].includes(activeDish.status)) return;
 
-    const interval = setInterval(async () => {
+    let isMounted = true;
+    let timerId: NodeJS.Timeout | null = null;
+    const dishId = activeDish.id;
+
+    const pollStatus = async () => {
+      if (!isMounted) return;
+
       try {
-        const res = await fetch(`${apiUrl}/dishes/${activeDish.id}/status`, { cache: "no-store" });
-        if (res.ok) {
+        const res = await fetch(`${apiUrl}/dishes/${dishId}/status`, { cache: "no-store" });
+        if (res.ok && isMounted) {
           const result = await res.json();
           if (result.success && result.data) {
-            setActiveDish(result.data);
-            if (["success", "failed", "cancelled"].includes(result.data.status)) {
+            const updated = result.data as DishModelData;
+            setActiveDish(updated);
+            setDishes((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+
+            if (["success", "failed", "cancelled"].includes(updated.status)) {
               fetchDishes();
               fetchBalance();
+              return; // Stop polling loop on terminal status
             }
           }
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3500);
 
-    return () => clearInterval(interval);
-  }, [activeDish, apiUrl, fetchDishes, fetchBalance]);
+      // Schedule next poll 5 seconds AFTER current request finishes
+      if (isMounted) {
+        timerId = setTimeout(pollStatus, 5000);
+      }
+    };
+
+    // First poll after 4 seconds
+    timerId = setTimeout(pollStatus, 4000);
+
+    return () => {
+      isMounted = false;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [activeDish?.id, activeDish?.status, apiUrl, fetchDishes, fetchBalance]);
 
   // Handle file picker
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,6 +296,25 @@ export default function Home() {
       setActiveDish((prev) => (prev ? { ...prev, status: "failed", error_message: msg } : null));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // Select dish from gallery with fresh backend fetch
+  const handleSelectDishFromGallery = async (dish: DishModelData) => {
+    setActiveDish(dish);
+    setActiveTab("generator");
+    try {
+      const res = await fetch(`${apiUrl}/dishes/${dish.id}`, { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const fresh = json.data as DishModelData;
+          setActiveDish(fresh);
+          setDishes((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching fresh dish details:", err);
     }
   };
 
@@ -631,10 +671,7 @@ export default function Home() {
                 <div
                   key={dish.id}
                   className="gallery-card"
-                  onClick={() => {
-                    setActiveDish(dish);
-                    setActiveTab("generator");
-                  }}
+                  onClick={() => handleSelectDishFromGallery(dish)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
