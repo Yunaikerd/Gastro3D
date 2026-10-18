@@ -21,6 +21,17 @@ class DishMultiviewControllerTest extends TestCase
      */
     public function test_cost_estimate_endpoint(): void
     {
+        Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 70,
+                    'frozen' => 0,
+                ],
+            ], 200),
+        ]);
+
         $response = $this->postJson('/api/dishes/cost-estimate', [
             'mode' => 'multiview',
             'model_version' => 'v3.1-20260211',

@@ -502,6 +502,7 @@ export default function Home() {
   // Select dish from gallery
   const handleSelectDishFromGallery = async (dish: DishModelData) => {
     setActiveDish(dish);
+    setSelectedVersion(dish.active_generation || null);
     setActiveTab("generator");
     setIsAddingNewVersion(false);
     try {
@@ -511,6 +512,9 @@ export default function Home() {
         if (json.success && json.data) {
           const fresh = json.data as DishModelData;
           setActiveDish(fresh);
+          if (fresh.active_generation) {
+            setSelectedVersion(fresh.active_generation);
+          }
           setDishes((prev) => prev.map((d) => (d.id === fresh.id ? fresh : d)));
           await fetchVersionsForDish(fresh.id);
         }
@@ -989,9 +993,14 @@ export default function Home() {
             {/* Original Photo Comparison Component */}
             {activeDish && (
               <PhotoComparison
-                views={selectedVersion?.views || [
-                  { angle: "front", image_url: activeDish.image_url },
-                ]}
+                key={`${activeDish.id}_${selectedVersion?.id || "base"}`}
+                views={
+                  selectedVersion?.views && selectedVersion.views.length > 0
+                    ? selectedVersion.views
+                    : activeDish.active_generation?.views && activeDish.active_generation.views.length > 0
+                    ? activeDish.active_generation.views
+                    : [{ angle: "front", image_url: activeDish.image_url }]
+                }
                 fallbackUrl={activeDish.image_url}
                 dishTitle={activeDish.title || "Plato"}
               />
