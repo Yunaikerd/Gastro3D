@@ -55,6 +55,14 @@ class DishModel extends Model
     }
 
     /**
+     * Menu products across all establishments that reference this 3D dish model.
+     */
+    public function menuProducts()
+    {
+        return $this->hasMany(MenuProduct::class, 'dish_model_id');
+    }
+
+    /**
      * Helper to create a new generation version for this dish with transaction and concurrency control.
      */
     public function createNewVersion(array $attributes): DishGeneration
