@@ -42,6 +42,9 @@ class DishController extends Controller
                 'success' => true,
                 'balance' => $balanceData['balance'],
                 'frozen' => $balanceData['frozen'],
+                'available_credits' => $balanceData['available_credits'],
+                'frozen_credits' => $balanceData['frozen_credits'],
+                'total_credits' => $balanceData['total_credits'],
                 'models' => $models,
                 'default_model' => config('services.tripo.default_model', 'v3.1-20260211'),
             ]);
@@ -160,9 +163,11 @@ class DishController extends Controller
                     'success' => false,
                     'insufficient_balance' => true,
                     'current_balance' => $currentBalance,
+                    'available_credits' => $currentBalance,
+                    'frozen_credits' => (float) $balanceData['frozen'],
                     'required_credits' => $requiredCredits,
                     'model_version' => $modelVersion,
-                    'message' => "Saldo insuficiente en tu cuenta de Tripo AI. Tu saldo disponible es de {$currentBalance} créditos y el modelo {$modelVersion} requiere {$requiredCredits} créditos. Por favor recarga créditos en tu consola de desarrollador antes de continuar.",
+                    'message' => "Saldo insuficiente en tu API Wallet de Tripo AI. Tu saldo disponible es de {$currentBalance} créditos (créditos congelados o en espera: {$balanceData['frozen']}) y el modelo {$modelVersion} requiere {$requiredCredits} créditos. Por favor recarga créditos en tu consola de desarrollador antes de continuar.",
                     'data' => $dish,
                 ], 402);
             }

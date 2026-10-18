@@ -116,6 +116,9 @@ class DishGenerationTest extends TestCase
 
         $this->assertIsArray($balance);
         $this->assertArrayHasKey('balance', $balance);
+        $this->assertArrayHasKey('frozen', $balance);
+        $this->assertArrayHasKey('available_credits', $balance);
+        $this->assertArrayHasKey('frozen_credits', $balance);
     }
 
     public function test_tripo_v3_balance_api_endpoint(): void
@@ -127,6 +130,9 @@ class DishGenerationTest extends TestCase
                 'success',
                 'balance',
                 'frozen',
+                'available_credits',
+                'frozen_credits',
+                'total_credits',
                 'models' => [
                     '*' => ['id', 'name', 'description', 'credits', 'recommended']
                 ],
@@ -134,10 +140,99 @@ class DishGenerationTest extends TestCase
             ]);
     }
 
-    public function test_generate_blocks_and_protects_credits_when_insufficient_balance(): void
+    public function test_simulated_balance_100_available_and_0_frozen(): void
     {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 100,
+                    'frozen' => 0,
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/api/tripo/balance');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'balance' => 100,
+                'frozen' => 0,
+                'available_credits' => 100,
+                'frozen_credits' => 0,
+                'total_credits' => 100,
+            ]);
+    }
+
+    public function test_simulated_balance_0_available_and_100_frozen(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 0,
+                    'frozen' => 100,
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/api/tripo/balance');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'balance' => 0,
+                'frozen' => 100,
+                'available_credits' => 0,
+                'frozen_credits' => 100,
+                'total_credits' => 100,
+            ]);
+    }
+
+    public function test_simulated_balance_0_available_and_0_frozen(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 0,
+                    'frozen' => 0,
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/api/tripo/balance');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'balance' => 0,
+                'frozen' => 0,
+                'available_credits' => 0,
+                'frozen_credits' => 0,
+                'total_credits' => 0,
+            ]);
+    }
+
+    public function test_generate_blocks_when_balance_is_0_and_frozen_is_100(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 0,
+                    'frozen' => 100,
+                ],
+            ], 200),
+        ]);
+
         $dish = DishModel::create([
-            'title' => 'Plato Bloqueado Test',
+            'title' => 'Plato Bloqueado Test Frozen',
             'image_path' => 'uploads/test.jpg',
             'image_url' => 'http://localhost:8000/storage/uploads/test.jpg',
             'status' => 'pending',
@@ -145,18 +240,119 @@ class DishGenerationTest extends TestCase
             'model_version' => 'v3.1-20260211',
         ]);
 
-        // Attempting to generate with insufficient balance returns HTTP 402
         $response = $this->postJson("/api/dishes/{$dish->id}/generate");
 
         $response->assertStatus(402)
             ->assertJson([
                 'success' => false,
                 'insufficient_balance' => true,
+                'current_balance' => 0,
+                'available_credits' => 0,
+                'frozen_credits' => 100,
+                'required_credits' => 30,
             ]);
 
         $this->assertDatabaseHas('dish_models', [
             'id' => $dish->id,
-            'status' => 'pending', // Status remains pending, no task created
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_generate_blocks_when_balance_is_0_and_frozen_is_0(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 0,
+                    'frozen' => 0,
+                ],
+            ], 200),
+        ]);
+
+        $dish = DishModel::create([
+            'title' => 'Plato Bloqueado Test Cero',
+            'image_path' => 'uploads/test.jpg',
+            'image_url' => 'http://localhost:8000/storage/uploads/test.jpg',
+            'status' => 'pending',
+            'progress' => 0,
+            'model_version' => 'v3.1-20260211',
+        ]);
+
+        $response = $this->postJson("/api/dishes/{$dish->id}/generate");
+
+        $response->assertStatus(402)
+            ->assertJson([
+                'success' => false,
+                'insufficient_balance' => true,
+                'current_balance' => 0,
+                'available_credits' => 0,
+                'frozen_credits' => 0,
+                'required_credits' => 30,
+            ]);
+
+        $this->assertDatabaseHas('dish_models', [
+            'id' => $dish->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_generate_proceeds_safely_when_balance_is_100_and_frozen_is_0_with_mock(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('uploads/test_real.jpg', 'fake-image-content');
+
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openapi.tripo3d.ai/v3/account/balance' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'balance' => 100,
+                    'frozen' => 0,
+                ],
+            ], 200),
+            'https://openapi.tripo3d.ai/v3/files' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'file_token' => 'file_mock_uuid_123',
+                ],
+            ], 200),
+            'https://openapi.tripo3d.ai/v3/generation/image-to-model' => \Illuminate\Support\Facades\Http::response([
+                'code' => 0,
+                'status' => 'success',
+                'data' => [
+                    'task_id' => 'task_mock_456',
+                ],
+            ], 200),
+        ]);
+
+        $dish = DishModel::create([
+            'title' => 'Plato Permitido Simulado',
+            'image_path' => 'uploads/test_real.jpg',
+            'image_url' => 'http://localhost:8000/storage/uploads/test_real.jpg',
+            'status' => 'pending',
+            'progress' => 0,
+            'model_version' => 'v3.1-20260211',
+        ]);
+
+        $response = $this->postJson("/api/dishes/{$dish->id}/generate");
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'id' => $dish->id,
+                    'tripo_task_id' => 'task_mock_456',
+                    'status' => 'queued',
+                ],
+            ]);
+
+        $this->assertDatabaseHas('dish_models', [
+            'id' => $dish->id,
+            'tripo_task_id' => 'task_mock_456',
+            'status' => 'queued',
         ]);
     }
 

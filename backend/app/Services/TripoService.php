@@ -55,10 +55,15 @@ class TripoService
         }
 
         $data = $json['data'] ?? [];
+        $balance = isset($data['balance']) ? (float) $data['balance'] : 0.0;
+        $frozen = isset($data['frozen']) ? (float) $data['frozen'] : 0.0;
 
         return [
-            'balance' => isset($data['balance']) ? (float) $data['balance'] : 0.0,
-            'frozen' => isset($data['frozen']) ? (float) $data['frozen'] : 0.0,
+            'balance' => $balance,
+            'frozen' => $frozen,
+            'available_credits' => $balance,
+            'frozen_credits' => $frozen,
+            'total_credits' => $balance + $frozen,
         ];
     }
 
@@ -250,30 +255,30 @@ class TripoService
         return [
             [
                 'id' => 'v3.1-20260211',
-                'name' => 'Tripo v3.1 (Máxima Calidad)',
+                'name' => 'Tripo v3.1 (Máxima Calidad PBR)',
                 'description' => 'SOTA gastronómico: mayor detalle geométrico, texturas PBR refinadas y definición de vajilla.',
                 'credits' => 30,
                 'recommended' => true,
             ],
             [
                 'id' => 'v3.0-20250812',
-                'name' => 'Tripo v3.0 (Calidad Alta)',
+                'name' => 'Tripo v3.0 (Calidad Alta PBR)',
                 'description' => 'Alta fidelidad volumétrica para platos con múltiples ingredientes.',
                 'credits' => 30,
                 'recommended' => false,
             ],
             [
                 'id' => 'v2.5-20250123',
-                'name' => 'Tripo v2.5 (Estándar Estable)',
-                'description' => 'Generación balanceada y estable.',
-                'credits' => 25,
+                'name' => 'Tripo v2.5 (Estándar Estable PBR)',
+                'description' => 'Generación balanceada y estable con texturas PBR.',
+                'credits' => 30,
                 'recommended' => false,
             ],
             [
                 'id' => 'P1-20260311',
-                'name' => 'Tripo P1 (Low-Poly / Web Rápido)',
-                'description' => 'Optimizado para bajo peso de malla y carga instantánea en móviles y AR.',
-                'credits' => 20,
+                'name' => 'Tripo P1 (Clean Topology / Web)',
+                'description' => 'Topología limpia para motores de juego, web y AR (textura estándar).',
+                'credits' => 40,
                 'recommended' => false,
             ],
         ];

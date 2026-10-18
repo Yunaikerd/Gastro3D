@@ -84,8 +84,10 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setBalance(data.balance);
-          setFrozenCredits(data.frozen ?? 0);
+          const avail = data.available_credits ?? data.balance ?? 0;
+          const froz = data.frozen_credits ?? data.frozen ?? 0;
+          setBalance(Number(avail));
+          setFrozenCredits(Number(froz));
           if (Array.isArray(data.models) && data.models.length > 0) {
             setAvailableModels(data.models);
           }
@@ -332,9 +334,9 @@ export default function Home() {
             }`}
             onClick={fetchBalance}
             style={{ cursor: "pointer" }}
-            title="Haz clic para actualizar saldo en tiempo real"
+            title="Haz clic para actualizar saldo en tiempo real desde la API V3 de Tripo"
           >
-            <span>💳 Saldo Tripo V3:</span>
+            <span>💳 Saldo Disponible:</span>
             <span className="balance-val">
               {balanceLoading
                 ? "..."
@@ -343,8 +345,8 @@ export default function Home() {
                 : "Sin verificar"}
             </span>
             {frozenCredits > 0 && (
-              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                ({frozenCredits} congelados)
+              <span style={{ fontSize: "0.75rem", color: "#fbbf24", background: "rgba(251, 191, 36, 0.15)", padding: "2px 6px", borderRadius: "4px" }}>
+                🔒 {frozenCredits.toFixed(0)} retenidos
               </span>
             )}
             <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>↺</span>
@@ -742,13 +744,21 @@ export default function Home() {
             </p>
 
             {/* Credit Breakdown Table */}
-            <div style={{ background: "rgba(0,0,0,0.3)", padding: "0.9rem", borderRadius: "10px", display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.84rem" }}>
+            <div style={{ background: "rgba(0,0,0,0.3)", padding: "0.9rem", borderRadius: "10px", display: "flex", flexDirection: "column", gap: "0.45rem", fontSize: "0.84rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Saldo disponible en tu cuenta:</span>
-                <strong style={{ fontFamily: "var(--font-mono)" }}>
+                <span style={{ color: "var(--text-muted)" }}>Saldo disponible (API Wallet):</span>
+                <strong style={{ fontFamily: "var(--font-mono)", color: hasSufficientBalance ? "#34d399" : "#f87171" }}>
                   {balance !== null ? `${balance.toFixed(2)} créditos` : "Consultando..."}
                 </strong>
               </div>
+              {frozenCredits > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-muted)" }}>Créditos retenidos / en proceso:</span>
+                  <span style={{ fontFamily: "var(--font-mono)", color: "#fbbf24" }}>
+                    {frozenCredits.toFixed(2)} créditos (no utilizables hasta liberarse)
+                  </span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--text-muted)" }}>Coste del modelo ({selectedModel}):</span>
                 <strong style={{ fontFamily: "var(--font-mono)", color: "var(--accent-orange)" }}>
@@ -756,7 +766,7 @@ export default function Home() {
                 </strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "0.4rem" }}>
-                <span style={{ color: "var(--text-muted)" }}>Saldo estimado posterior:</span>
+                <span style={{ color: "var(--text-muted)" }}>Saldo disponible posterior estimado:</span>
                 <strong style={{ fontFamily: "var(--font-mono)", color: hasSufficientBalance ? "#34d399" : "#f87171" }}>
                   {balance !== null ? `${(balance - requiredCredits).toFixed(2)} créditos` : "N/A"}
                 </strong>
@@ -768,13 +778,14 @@ export default function Home() {
               <div className="insufficient-box">
                 <strong>🚫 Generación Bloqueada por Seguridad:</strong>
                 <span>
-                  No dispones de saldo suficiente en tu cuenta de Tripo AI (Saldo actual: <strong>{balance?.toFixed(2) ?? "0.00"} créditos</strong>; necesarios: <strong>{requiredCredits} créditos</strong>).
+                  No dispones de saldo suficiente en tu API Wallet de Tripo AI (Disponible: <strong>{balance?.toFixed(2) ?? "0.00"} créditos</strong>; necesarios: <strong>{requiredCredits} créditos</strong>).
+                  {frozenCredits > 0 && ` Hay ${frozenCredits.toFixed(0)} créditos retenidos o en proceso de acreditación.`}
                 </span>
                 <span>
                   Para evitar errores de cobro o llamadas fallidas, el botón de envío ha sido deshabilitado.
                 </span>
                 <a
-                  href="https://developers.tripo3d.ai"
+                  href="https://platform.tripo3d.ai/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="link-recharge"
