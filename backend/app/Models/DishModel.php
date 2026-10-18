@@ -74,7 +74,10 @@ class DishModel extends Model
                 $dish->generations()->update(['is_active' => false]);
             }
 
-            $generation = $dish->generations()->create(array_merge($attributes, [
+            $generation = $dish->generations()->create(array_merge([
+                'status' => 'pending',
+                'progress' => 0,
+            ], $attributes, [
                 'version_number' => $nextVersion,
                 'model_version' => $modelVersion,
                 'is_active' => $makeActive,
@@ -82,13 +85,13 @@ class DishModel extends Model
 
             if ($makeActive) {
                 $dish->update([
-                    'status' => $generation->status,
-                    'progress' => $generation->progress,
+                    'status' => $generation->status ?? 'pending',
+                    'progress' => (int) ($generation->progress ?? 0),
                     'glb_path' => $generation->glb_path,
                     'glb_url' => $generation->glb_url,
                     'thumbnail_url' => $generation->thumbnail_url,
                     'tripo_task_id' => $generation->tripo_task_id,
-                    'model_version' => $generation->model_version,
+                    'model_version' => $generation->model_version ?? $modelVersion,
                 ]);
             }
 

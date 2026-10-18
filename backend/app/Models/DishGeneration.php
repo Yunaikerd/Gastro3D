@@ -74,8 +74,8 @@ class DishGeneration extends Model
             // Sync parent dish_models record for backward compatibility
             if ($dish) {
                 $dish->update([
-                    'status' => $this->status,
-                    'progress' => $this->progress,
+                    'status' => $this->status ?? 'pending',
+                    'progress' => (int) ($this->progress ?? 0),
                     'glb_path' => $this->glb_path,
                     'glb_url' => $this->glb_url,
                     'thumbnail_url' => $this->thumbnail_url,
