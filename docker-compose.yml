@@ -42,6 +42,9 @@ services:
       DB_DATABASE: ${DB_DATABASE:-gastro3d}
       DB_USERNAME: ${DB_USERNAME:-gastro3d_user}
       DB_PASSWORD: ${DB_PASSWORD:-gastro3d_password}
+      TRIPO_API_KEY: ${TRIPO_API_KEY:-}
+    env_file:
+      - ./backend/.env
     depends_on:
       postgres:
         condition: service_healthy

@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'tripo' => [
+        'api_key' => env('TRIPO_API_KEY'),
+        'base_url' => env('TRIPO_BASE_URL', 'https://openapi.tripo3d.ai/v3'),
+        'default_model' => env('TRIPO_DEFAULT_MODEL', 'v3.1-20260211'),
+    ],
+
 ];
