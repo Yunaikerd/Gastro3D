@@ -85,4 +85,63 @@ class DishGeneration extends Model
             }
         });
     }
+
+    /**
+     * Record dispatched Tripo task details on this generation.
+     */
+    public function recordTask(string $taskId, int $estimatedCredits, array $raw = []): void
+    {
+        $this->update([
+            'tripo_task_id' => $taskId,
+            'credits_consumed' => $estimatedCredits,
+            'status' => 'queued',
+            'progress' => 15,
+            'meta' => array_merge($this->meta ?? [], ['v3_create_task_response' => $raw]),
+        ]);
+
+        if ($this->is_active && $this->dishModel) {
+            $this->dishModel->update([
+                'tripo_task_id' => $taskId,
+                'status' => 'queued',
+                'progress' => 15,
+            ]);
+        }
+    }
+
+    /**
+     * Update generation progress and status directly from Tripo status payload.
+     */
+    public function syncFromTripoStatus(array $statusData): void
+    {
+        $status = $statusData['status'] ?? $this->status;
+        $progress = isset($statusData['progress']) ? (int) $statusData['progress'] : $this->progress;
+        $output = $statusData['output'] ?? [];
+        $modelUrl = $output['model_url'] ?? $output['model'] ?? $this->glb_url;
+        $thumbnailUrl = $output['rendered_image_url'] ?? $output['rendered_image'] ?? $this->thumbnail_url;
+        $creditsConsumed = $statusData['credits_consumed'] ?? $this->credits_consumed;
+        $errorMessage = null;
+
+        if ($status === 'failed') {
+            $errorMessage = $statusData['error_message'] ?? 'Generación fallida en Tripo AI.';
+        }
+
+        $this->update([
+            'status' => $status,
+            'progress' => $progress,
+            'glb_url' => $modelUrl,
+            'thumbnail_url' => $thumbnailUrl,
+            'credits_consumed' => $creditsConsumed,
+            'error_message' => $errorMessage,
+        ]);
+
+        if ($this->is_active && $this->dishModel) {
+            $this->dishModel->update([
+                'status' => $status,
+                'progress' => $progress,
+                'glb_url' => $modelUrl,
+                'thumbnail_url' => $thumbnailUrl,
+                'error_message' => $errorMessage,
+            ]);
+        }
+    }
 }
