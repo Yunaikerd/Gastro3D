@@ -1,0 +1,858 @@
+/* ==========================================================================
+   GASTRO3D MENU — ULTRA-PREMIUM RESPONSIVE GASTRONOMY STYLES
+   ========================================================================== */
+
+.menuContainer {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: var(--font-sans, 'Outfit', system-ui, sans-serif);
+}
+
+/* Theme definition */
+.menuContainer[data-theme="dark"] {
+  --menu-bg: #0e0907;
+  --menu-bg-gradient: radial-gradient(circle at 50% 0%, #2a160e 0%, #0e0907 70%);
+  --menu-surface: rgba(28, 17, 12, 0.75);
+  --menu-surface-elevated: rgba(42, 26, 19, 0.9);
+  --menu-surface-hover: rgba(56, 36, 26, 0.95);
+  --menu-border: rgba(200, 150, 102, 0.16);
+  --menu-border-active: #c89666;
+  --menu-text-primary: #FAF7F2;
+  --menu-text-secondary: #d4b69c;
+  --menu-text-muted: #8e7564;
+  --menu-accent: #c89666;
+  --menu-accent-hover: #dfad7d;
+  --menu-price: #f5c490;
+  --menu-badge-bg: rgba(200, 150, 102, 0.15);
+  --menu-badge-border: rgba(200, 150, 102, 0.3);
+  --menu-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  --menu-modal-overlay: rgba(8, 5, 4, 0.85);
+  --menu-nav-bg: rgba(14, 9, 7, 0.88);
+}
+
+.menuContainer[data-theme="light"] {
+  --menu-bg: #faf7f2;
+  --menu-bg-gradient: radial-gradient(circle at 50% 0%, #f3ebe0 0%, #faf7f2 70%);
+  --menu-surface: #ffffff;
+  --menu-surface-elevated: #ffffff;
+  --menu-surface-hover: #f9f5ef;
+  --menu-border: rgba(60, 34, 25, 0.1);
+  --menu-border-active: #8b4513;
+  --menu-text-primary: #25140e;
+  --menu-text-secondary: #5c4438;
+  --menu-text-muted: #8c7365;
+  --menu-accent: #8b4513;
+  --menu-accent-hover: #a65217;
+  --menu-price: #b3541e;
+  --menu-badge-bg: rgba(139, 69, 19, 0.08);
+  --menu-badge-border: rgba(139, 69, 19, 0.2);
+  --menu-shadow: 0 10px 30px -10px rgba(60, 34, 25, 0.1);
+  --menu-modal-overlay: rgba(37, 20, 14, 0.6);
+  --menu-nav-bg: rgba(250, 247, 242, 0.92);
+}
+
+.menuContainer {
+  background: var(--menu-bg-gradient);
+  color: var(--menu-text-primary);
+}
+
+/* ==========================================================================
+   TOP DEMO NOTICE & THEME SWITCHER BAR
+   ========================================================================== */
+
+.topUtilityBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--menu-border);
+  font-size: 0.82rem;
+  position: relative;
+  z-index: 40;
+}
+
+.demoPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.themeToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--menu-surface);
+  border: 1px solid var(--menu-border);
+  color: var(--menu-text-primary);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.themeToggleBtn:hover {
+  border-color: var(--menu-accent);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   RESTAURANT HEADER & HERO COVER
+   ========================================================================== */
+
+.heroSection {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.coverCard {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  border-radius: 24px;
+  overflow: hidden;
+  margin-top: 16px;
+  box-shadow: var(--menu-shadow);
+  border: 1px solid var(--menu-border);
+}
+
+@media (min-width: 768px) {
+  .coverCard {
+    height: 320px;
+  }
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coverOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2) 0%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+}
+
+.establishmentProfile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: -60px;
+  padding-bottom: 24px;
+  z-index: 10;
+}
+
+.logoWrapper {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--menu-surface);
+  border: 4px solid var(--menu-bg);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+.logoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+}
+
+.establishmentName {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-top: 14px;
+  color: var(--menu-text-primary);
+}
+
+@media (min-width: 768px) {
+  .establishmentName {
+    font-size: 2.5rem;
+  }
+}
+
+.tagline {
+  font-size: 1.05rem;
+  color: var(--menu-text-secondary);
+  max-width: 600px;
+  margin: 6px auto 14px;
+  line-height: 1.4;
+}
+
+.metaBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: var(--menu-badge-bg);
+  border: 1px solid var(--menu-badge-border);
+  color: var(--menu-text-secondary);
+}
+
+.whatsappLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #25d366;
+  color: #072911;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.whatsappLink:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+}
+
+/* ==========================================================================
+   SEARCH BAR & QUICK FILTERS
+   ========================================================================== */
+
+.searchContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 16px;
+}
+
+.searchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--menu-surface);
+  border: 1px solid var(--menu-border);
+  border-radius: 16px;
+  padding: 10px 16px;
+  box-shadow: var(--menu-shadow);
+  transition: border-color 0.2s ease;
+}
+
+.searchBox:focus-within {
+  border-color: var(--menu-border-active);
+}
+
+.searchIcon {
+  color: var(--menu-text-muted);
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--menu-text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.searchInput::placeholder {
+  color: var(--menu-text-muted);
+}
+
+.clearSearchBtn {
+  background: transparent;
+  border: none;
+  color: var(--menu-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 1rem;
+}
+
+/* ==========================================================================
+   STICKY CATEGORY NAVIGATION
+   ========================================================================== */
+
+.stickyNavWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--menu-nav-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--menu-border);
+  border-bottom: 1px solid var(--menu-border);
+  padding: 10px 0;
+  transition: all 0.25s ease;
+}
+
+.categoryScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.categoryScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  background: var(--menu-surface);
+  border: 1px solid var(--menu-border);
+  color: var(--menu-text-secondary);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.categoryTab:hover {
+  color: var(--menu-text-primary);
+  border-color: var(--menu-accent);
+}
+
+.categoryTabActive {
+  background: var(--menu-accent);
+  border-color: var(--menu-accent);
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 16px var(--menu-accent-glow);
+}
+
+/* ==========================================================================
+   MENU CONTENT & PRODUCT GRIDS
+   ========================================================================== */
+
+.mainContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+}
+
+.categorySection {
+  margin-bottom: 48px;
+  scroll-margin-top: 80px;
+}
+
+.categoryHeading {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.categoryTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--menu-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.categoryDesc {
+  font-size: 0.9rem;
+  color: var(--menu-text-muted);
+  margin-top: 4px;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+@media (min-width: 640px) {
+  .productGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .productGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+  }
+}
+
+/* ==========================================================================
+   PRODUCT CARDS
+   ========================================================================== */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--menu-surface);
+  border: 1px solid var(--menu-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--menu-shadow);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--menu-border-active);
+  background: var(--menu-surface-hover);
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.imageContainer {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.productImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.card:hover .productImage {
+  transform: scale(1.04);
+}
+
+.cardTopBadges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.featuredBadge {
+  background: #f59e0b;
+  color: #3d2402;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.threeDBadge {
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--menu-text-primary);
+  line-height: 1.3;
+}
+
+.cardDesc {
+  font-size: 0.88rem;
+  color: var(--menu-text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--menu-border);
+}
+
+.priceTag {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--menu-price);
+}
+
+.priceDemoNotice {
+  font-size: 0.68rem;
+  color: var(--menu-text-muted);
+  display: block;
+}
+
+.viewDetailBtn {
+  background: var(--menu-badge-bg);
+  border: 1px solid var(--menu-badge-border);
+  color: var(--menu-accent);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.card:hover .viewDetailBtn {
+  background: var(--menu-accent);
+  color: #ffffff;
+  border-color: var(--menu-accent);
+}
+
+/* ==========================================================================
+   PRODUCT DETAIL MODAL / SHEET
+   ========================================================================== */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--menu-modal-overlay);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 0;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@media (min-width: 640px) {
+  .modalOverlay {
+    align-items: center;
+    padding: 20px;
+  }
+}
+
+.modalContent {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--menu-surface-elevated);
+  border: 1px solid var(--menu-border);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 640px) {
+  .modalContent {
+    border-radius: 28px;
+    max-height: 85vh;
+  }
+}
+
+.modalCloseBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.2s ease;
+}
+
+.modalCloseBtn:hover {
+  transform: scale(1.1);
+}
+
+.modalImageWrapper {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.modalImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modalBody {
+  padding: 22px;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.modalTitle {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--menu-text-primary);
+  line-height: 1.25;
+}
+
+.modalPrice {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--menu-price);
+  white-space: nowrap;
+}
+
+.modalDesc {
+  font-size: 0.95rem;
+  color: var(--menu-text-secondary);
+  line-height: 1.5;
+  margin-top: 12px;
+}
+
+.modalTagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.dietaryPill {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.allergenPill {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.threeDCardNotice {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(236, 72, 153, 0.12) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
+  padding: 14px;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.threeDIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.threeDTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #c084fc;
+}
+
+.threeDSub {
+  font-size: 0.78rem;
+  color: var(--menu-text-muted);
+  margin-top: 2px;
+}
+
+.demoPriceNoticeBox {
+  margin-top: 18px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 0.78rem;
+  color: #f59e0b;
+  line-height: 1.4;
+}
+
+.modalFooter {
+  padding: 16px 22px 22px;
+  display: flex;
+  gap: 10px;
+}
+
+.backBtn {
+  flex: 1;
+  background: var(--menu-surface);
+  border: 1px solid var(--menu-border);
+  color: var(--menu-text-primary);
+  padding: 12px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backBtn:hover {
+  border-color: var(--menu-accent);
+}
+
+/* ==========================================================================
+   STATE CARDS (LOADING SKELETONS, EMPTY, ERROR)
+   ========================================================================== */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: 8px;
+}
+
+.stateCard {
+  max-width: 500px;
+  margin: 60px auto;
+  text-align: center;
+  padding: 40px 24px;
+  background: var(--menu-surface);
+  border: 1px solid var(--menu-border);
+  border-radius: 24px;
+  box-shadow: var(--menu-shadow);
+}
+
+.stateIcon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.stateTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--menu-text-primary);
+}
+
+.stateDesc {
+  font-size: 0.95rem;
+  color: var(--menu-text-muted);
+  margin: 8px 0 24px;
+  line-height: 1.5;
+}
+
+.stateActionBtn {
+  background: var(--menu-accent);
+  color: #ffffff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stateActionBtn:hover {
+  background: var(--menu-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

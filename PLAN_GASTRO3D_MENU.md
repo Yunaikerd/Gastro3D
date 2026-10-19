@@ -56,14 +56,17 @@ Gastro3D Menu es el primer producto comercializable del ecosistema Gastro3D. Per
 
 ---
 
-### ETAPA 3: MENÚ DIGITAL RESPONSIVE EN NEXT.JS
-- **Objetivo:** Desarrollar la interfaz web pública `/menu/[slug]` con diseño ultra-premium optimizado para teléfonos móviles.
-- **Alcance Técnico:**
-  1. Ruta dinámica `app/menu/[slug]/page.tsx` en Next.js.
-  2. Cabecera con identidad visual del establecimiento (logo, banner, paleta de colores personalizada).
-  3. Navegación rápida horizontal tipo sticky para categorías.
-  4. Cards de productos con fotografía 2D, badges de "Disponible en 3D" y "Ver en AR".
-  5. Sheet o modal de detalle de producto.
+### ETAPA 3: MENÚ DIGITAL RESPONSIVE EN NEXT.JS (COMPLETADA)
+- **Estado:** ✅ Completado y Verificado (18 de Octubre de 2026).
+- **Entregables:**
+  1. Ruta dinámica `app/menu/[slug]/page.tsx` en Next.js con soporte `force-dynamic` y límite de `Suspense`.
+  2. Cabecera con identidad visual dinámica (`MenuHeader.tsx`), portada, logo, aviso de catálogo demostrativo y toggle claro/oscuro.
+  3. Navegación sticky de categorías con píldoras horizontales (`CategoryNav.tsx`) y desplazamiento fluido.
+  4. Buscador reactivo en tiempo real con filtrado de platos por nombre, ingredientes o etiquetas.
+  5. Tarjetas gastronómicas de productos (`ProductCard.tsx`) con precios en COP, badges y fotografía/placeholders locales seguros.
+  6. Modal de detalle de producto (`ProductDetailModal.tsx`) con etiquetas dietéticas, alérgenos, tiempo de preparación y aviso demostrativo.
+  7. Preparación para 3D: badge condicional para productos 3D sin botones falsos de AR ni carga de modelos GLB pesados en la página inicial.
+  8. Responsive validado en 390px (móvil), 768px (tablet) y 1440px (desktop) mediante navegador real. Build de Next.js limpio.
 
 ---
 
@@ -115,15 +118,20 @@ Al reanudar la sesión de desarrollo, sigue estos pasos en orden:
    ```
    *Asegurarse de que `gastro3d_backend`, `gastro3d_frontend` y `gastro3d_postgres` estén ejecutándose.*
 
-3. **Verificar la Suite de Pruebas:**
+3. **Verificar la Suite de Pruebas y Compilación:**
    ```bash
    docker exec gastro3d_backend php artisan test
+   npm --prefix frontend run build
    ```
-   *Deben pasar las 52 pruebas existentes.*
+   *Deben pasar las 63 pruebas de backend (348 aserciones) y compilar limpiamente el frontend.*
 
-4. **Proceder con la Etapa 2:**
-   - Solicitar confirmación para iniciar el desarrollo de la **Etapa 2 (Endpoints REST y Catálogo Piloto Coffelia)**.
-   - Crear los controladores `EstablishmentMenuController`, JsonResources y las rutas en `backend/routes/api.php`.
-   - Implementar el seeder piloto controlado sin datos sensibles.
-   - Escribir las pruebas de endpoints de menú.
-   - Ejecutar la suite de pruebas y validar respuestas JSON.
+4. **Verificar Servicios en Vivo:**
+   - Menú Coffelia: `http://localhost:3000/menu/coffelia`
+   - Gastro3D Studio: `http://localhost:3000`
+
+5. **Proceder con la Etapa 4:**
+   - Solicitar confirmación para iniciar el desarrollo de la **Etapa 4 (Visualización 3D y Realidad Aumentada - AR)**.
+   - Integrar `<model-viewer>` de manera optimizada y perezosa (lazy load) en Next.js.
+   - Conectar los modelos GLB disponibles para los platos de prueba que tienen `has_3d = true`.
+   - Implementar botón interactivo de 3D / AR («Ver en mi mesa») con soporte para WebXR y Quick Look en dispositivos móviles.
+   - Mantener el rendimiento móvil y no cargar archivos 3D pesados en la lista general del menú.

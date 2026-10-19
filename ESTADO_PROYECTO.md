@@ -237,10 +237,19 @@ Será obligatorio implementar aislamiento de datos y permisos entre establecimie
 - **Pruebas:** 11 pruebas dedicadas en `EstablishmentMenuApiTest.php` (102 aserciones).
 - **Resultados globales:** 63 pruebas de Laravel en verde (348 aserciones), compilación limpia de Next.js (`npm run build` en 1.6s), 0 créditos Tripo consumidos, 3 modelos GLB y Studio intactos.
 
-### Etapa 3 — Menú digital público
-- Desarrollar `/menu/[slug]` en Next.js.
-- Diseño responsive ultra-premium, cabecera con branding dinámico, categorías sticky y fichas de producto.
-- Badges de "Disponible en 3D" y "Ver en AR".
+### Etapa 3 — Menú digital público (COMPLETADA Y VERIFICADA)
+- **Ejecución:** 18 de octubre de 2026.
+- **Ruta implementada:** `/menu/[slug]` en Next.js 16 (`app/menu/[slug]/page.tsx`). Probado en vivo en `/menu/coffelia`.
+- **Diseño Gastronómico Ultra-Premium:** Estilo contemporáneo, paleta cálida basada en `theme_config`, tipografía moderna, microanimaciones táctiles y modo dual Claro/Oscuro con persistencia en `localStorage`.
+- **Componentes Creados:**
+  - `MenuHeader`: Portada hero, logo circular con sombra, metadatos, enlace a WhatsApp y aviso de catálogo demostrativo.
+  - `CategoryNav`: Barra horizontal sticky con desplazamiento suave a las secciones por categoría.
+  - `ProductCard`: Tarjeta gastronómica con fotografía/placeholder seguro, badge 3D condicional (`has_3d = true`), precio en COP y botón táctil.
+  - `ProductDetailModal`: Modal interactivo con fotografía ampliada, alérgenos, etiquetas dietéticas, tiempo de preparación, aviso de precio demostrativo y preparación visual para 3D en la Etapa 4 (sin botones falsos de AR).
+  - `MenuSkeletons`: Shimmer animado para carga inicial fluida.
+- **Buscador en Tiempo Real:** Filtrado reactivo por nombre, descripción y etiquetas dietéticas.
+- **Responsive Validado:** Inspeccionado y verificado en viewport móvil (390px), tablet (768px) y desktop (1440px).
+- **Resultados:** `npm run build` limpio (compilación exitosa en 2.0s con Partial Prerendering y Turbopack), 63 pruebas de backend pasando (348 aserciones), Gastro3D Studio intacto en `/` y 0 créditos Tripo consumidos.
 
 ### Etapa 4 — Visualización 3D y AR
 - Integrar modelos GLB existentes con `<model-viewer>`.
@@ -256,20 +265,29 @@ Será obligatorio implementar aislamiento de datos y permisos entre establecimie
 
 ## 9. CIERRE DE JORNADA Y SIGUIENTES PASOS (MAÑANA)
 
-La **Etapa 1** ha sido completada con éxito, verificada y aprobada.
+La **Etapa 3: Menú Digital Responsive en Next.js** ha sido completada con éxito, verificada y aprobada.
 
-### Commit de Cierre de Etapa 1:
-- **Mensaje:** `feat: implement multi-tenant menu database architecture and isolation`
-- **Contenido:** Migraciones multi-tenant, modelos Eloquent, servicio de aislamiento, pruebas de aislamiento, documentación técnica (`PLAN_GASTRO3D_MENU.md`, `ESTADO_PROYECTO.md`).
+### Commit de Cierre de Etapa 3:
+- **Mensaje:** `feat: build responsive Gastro3D Menu interface for Coffelia`
+- **Contenido:**
+  - Ruta interactiva `/menu/[slug]` en Next.js (`frontend/src/app/menu/[slug]/page.tsx`, `menu.module.css`).
+  - Componentes modulares: `MenuHeader`, `CategoryNav`, `ProductCard`, `ProductDetailModal`, `MenuSkeletons`.
+  - Tipos TypeScript en `frontend/src/types/menu.ts`.
+  - Documentación técnica actualizada (`ESTADO_PROYECTO.md`, `PLAN_GASTRO3D_MENU.md`).
 - **Exclusiones verificadas:** Sin archivos `.env`, sin claves API, sin fotos privadas, sin modelos GLB y sin volcados SQL.
 
 ### Instrucciones para retomar el proyecto mañana:
 1. Comprobar que `git status` esté limpio y sincronizado con `origin/main`.
 2. Verificar contenedores Docker con `docker ps` (`gastro3d_backend`, `gastro3d_frontend`, `gastro3d_postgres`).
-3. Ejecutar `docker exec gastro3d_backend php artisan test` para confirmar las 52 pruebas en verde.
-4. Solicitar autorización para iniciar la **Etapa 2: Endpoints REST y Catálogo Piloto Coffelia**.
-5. No consumir créditos Tripo ni realizar generaciones 3D sin permiso previo.
-6. Mantener Gastro3D Studio 100% operativo.
+3. Ejecutar `docker exec gastro3d_backend php artisan test` para confirmar las 63 pruebas en verde (348 aserciones).
+4. Ejecutar `npm run build` en el frontend para confirmar compilación limpia.
+5. Confirmar que Gastro3D Studio (`http://localhost:3000`) y Gastro3D Menu (`http://localhost:3000/menu/coffelia`) respondan con normalidad.
+6. Solicitar autorización para iniciar la **Etapa 4: Visualización 3D y Realidad Aumentada (AR)**:
+   - Integración con `<model-viewer>` de Google.
+   - Activación de botón «Ver en 3D» y «Ver en mi mesa (AR)» en los platos que tengan `has_3d = true`.
+   - Carga diferida y optimización para no penalizar la navegación móvil.
+7. No consumir créditos Tripo ni realizar generaciones 3D sin permiso previo.
+8. Mantener Gastro3D Studio 100% operativo.
 
 ## 10. REGLAS IMPORTANTES
 
