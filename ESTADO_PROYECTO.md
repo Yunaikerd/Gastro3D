@@ -225,11 +225,17 @@ Será obligatorio implementar aislamiento de datos y permisos entre establecimie
 - **Pruebas:** 7 pruebas dedicadas en `MultiTenantMenuIsolationTest.php` probando aislamiento entre 2 tenants independientes (*Tenant Alpha Bakery* y *Tenant Beta Bistro*).
 - **Resultados:** 52 pruebas en verde (246 aserciones), compilación Next.js limpia en 1.7s, 0 créditos Tripo consumidos, Gastro3D Studio intacto.
 
-### Etapa 2 — API y catálogo piloto (SIGUIENTE PASO PARA MAÑANA)
-- Crear endpoints REST para consultar el menú por slug (`/api/v1/establishments/{slug}/menu` y `/products/{productSlug}`).
-- Crear `EstablishmentMenuController` y JsonResources.
-- Implementar el seeder piloto de Coffelia con datos controlados de demostración (sin inventar datos comerciales sensibles).
-- Crear pruebas automatizadas de endpoints, ordenación y aislamiento entre menús.
+### Etapa 2 — API y catálogo piloto (COMPLETADA Y VERIFICADA)
+- **Ejecución:** 18 de octubre de 2026.
+- **Endpoints REST creados:**
+  - `GET /api/v1/establishments/{slug}/menu`: Consulta optimizada con eager loading de categorías activas y productos disponibles con branding.
+  - `GET /api/v1/establishments/{slug}/products/{productSlug}`: Detalle de producto por slug o UUID, con metadatos 3D/AR seguros.
+- **Controlador y Recursos:** `EstablishmentMenuController`, `EstablishmentMenuResource`, `MenuCategoryResource`, `MenuProductResource`, `MenuProductDetailResource`.
+- **Estrategia Estable de Slugs:** Migración `2026_10_18_030003_add_slug_to_menu_products_table.php` con índice compuesto `UNIQUE(establishment_id, slug)`. Generación automática en `MenuProduct::booted()` con resolución de colisiones y permanencia de URLs al renombrar platos.
+- **Placeholders Seguros y Coffelia:** `CoffeliaPilotSeeder` idempotente con 4 categorías y 9 productos, usando placeholders SVG locales (`/images/placeholders/food-placeholder.svg`, `coffelia-logo-demo.svg`, `coffelia-cover-demo.svg`), datos de contacto identificados como piloto de prueba, precios demostrativos en `meta` (`is_demo_price: true`), y sin asociar modelos 3D inapropiados.
+- **Seguridad Multi-Tenant:** Aislamiento total por tenant, filtrado de categorías inactivas y productos agotados, y prevención de fuga de credenciales o rutas internas.
+- **Pruebas:** 11 pruebas dedicadas en `EstablishmentMenuApiTest.php` (102 aserciones).
+- **Resultados globales:** 63 pruebas de Laravel en verde (348 aserciones), compilación limpia de Next.js (`npm run build` en 1.6s), 0 créditos Tripo consumidos, 3 modelos GLB y Studio intactos.
 
 ### Etapa 3 — Menú digital público
 - Desarrollar `/menu/[slug]` en Next.js.

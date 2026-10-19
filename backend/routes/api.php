@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DishController;
+use App\Http\Controllers\Api\EstablishmentMenuController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 
@@ -58,3 +59,10 @@ Route::prefix('dishes')->group(function () {
     Route::get('/{id}/versions/{versionId}/status', [DishController::class, 'checkVersionStatus']);
     Route::get('/{id}/versions/{versionId}/model', [DishController::class, 'serveVersionModel']);
 });
+
+// Gastro3D Menu - Etapa 2: API Pública de Menús y Catálogos Multi-Tenant
+Route::prefix('v1/establishments')->group(function () {
+    Route::get('/{slug}/menu', [EstablishmentMenuController::class, 'menu']);
+    Route::get('/{slug}/products/{productSlug}', [EstablishmentMenuController::class, 'productDetail']);
+});
+

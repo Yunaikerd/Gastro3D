@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="coverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1B0F0A"/>
+      <stop offset="50%" stop-color="#2D1A12"/>
+      <stop offset="100%" stop-color="#3B2219"/>
+    </linearGradient>
+    <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C89666" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="#F2D7B6" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#C89666" stop-opacity="0.1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="400" fill="url(#coverGrad)"/>
+
+  <!-- Decorative geometric mesh -->
+  <circle cx="1100" cy="50" r="280" fill="#C89666" opacity="0.04"/>
+  <circle cx="100" cy="350" r="220" fill="#C89666" opacity="0.04"/>
+  <line x1="150" y1="320" x2="1050" y2="320" stroke="url(#goldAccent)" stroke-width="1"/>
+
+  <text x="600" y="190" font-family="system-ui, -apple-system, sans-serif" font-size="38" font-weight="700" fill="#F2D7B6" text-anchor="middle" letter-spacing="6">
+    COFFELIA COFFEE ROASTERS
+  </text>
+  <text x="600" y="235" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="400" fill="#D4B69C" text-anchor="middle" letter-spacing="3">
+    CAFÉ DE ESPECIALIDAD &amp; REPOSTERÍA ARTESANAL
+  </text>
+  <text x="600" y="270" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#C89666" text-anchor="middle" letter-spacing="2">
+    — PILOTO DEMOSTRATIVO GASTRO3D —
+  </text>
+</svg>

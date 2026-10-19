@@ -34,21 +34,25 @@ Gastro3D Menu es el primer producto comercializable del ecosistema Gastro3D. Per
 
 ---
 
-### ETAPA 2: ENDPOINTS REST Y CATÁLOGO PILOTO COFFELIA (SIGUIENTE PASO)
-- **Objetivo:** Exponer la API segura de Gastro3D Menu para consumo del frontend y poblar el tenant piloto de Coffelia con datos de demostración respetuosos y controlados.
-- **Alcance Técnico:**
+### ETAPA 2: ENDPOINTS REST Y CATÁLOGO PILOTO COFFELIA (COMPLETADA)
+- **Estado:** ✅ Completado y Verificado (18 de Octubre de 2026).
+- **Entregables:**
   1. **Endpoints Públicos del Menú:**
-     - `GET /api/v1/establishments/{slug}/menu`: Retorna datos de marca del establecimiento, categorías activas y productos disponibles ordenados.
-     - `GET /api/v1/establishments/{slug}/products/{productSlug}`: Detalle de producto, flags `has_3d`/`ar_enabled` y URL segura del modelo 3D.
+     - `GET /api/v1/establishments/{slug}/menu`: Consulta rápida y estructurada con eager loading de categorías activas y productos disponibles.
+     - `GET /api/v1/establishments/{slug}/products/{productSlug}`: Detalle de producto por slug o UUID, con metadatos 3D/AR seguros.
   2. **Controlador y Recursos:**
-     - `EstablishmentMenuController` con JsonResources para formatear respuestas limpias y sin filtrar datos internos.
-     - Manejo de respuestas 404 para slugs inexistentes o inactivos.
-  3. **Catálogo Demostrativo Piloto (Seeder):**
-     - Seeder `CoffeliaPilotSeeder` para crear el tenant `coffelia` con su paleta de color y moneda `COP`.
-     - Categorías iniciales de demostración: Cafés de Especialidad, Bebidas Frías, Repostería & Panadería.
-     - Vinculación demostrativa con el modelo 3D existente de Studio (sin inventar datos comerciales reales de la cafetería).
-  4. **Pruebas Automatizadas:**
-     - Tests de integración para respuesta JSON, ordenación por `display_order`, filtrado de inactivos y aislamiento entre tenants.
+     - `EstablishmentMenuController` con `EstablishmentMenuResource`, `MenuCategoryResource`, `MenuProductResource`, `MenuProductDetailResource`.
+     - Manejo de respuestas 404 para slugs inexistentes, inactivos o acceso cross-tenant no autorizado.
+  3. **Catálogo Demostrativo Piloto (Seeder) y Placeholders:**
+     - Seeder `CoffeliaPilotSeeder` idempotente con el tenant `coffelia`, paleta de café artesanal (`theme_config`) y moneda `COP`.
+     - 4 categorías: Cafés de Especialidad, Bebidas Frías, Repostería Artesanal, Panadería & Salados.
+     - 9 productos con placeholders SVG locales (`/images/placeholders/food-placeholder.svg`, etc.) y precios expresamente identificados como demostrativos en `meta` (`is_demo_price: true`), sin asociar modelos 3D ajenos.
+  4. **Estrategia Estable de Slugs:**
+     - Migración `2026_10_18_030003_add_slug_to_menu_products_table.php` con índice compuesto `UNIQUE(establishment_id, slug)`.
+     - Slugs permanentes autogenerados en `MenuProduct::booted()` con prevención de colisiones.
+  5. **Pruebas Automatizadas:**
+     - 11 pruebas en `EstablishmentMenuApiTest.php` validando estructura, ordenación por `sort_order`, filtrado de inactivos, aislamiento cross-tenant, sanitización de respuestas privadas, estabilidad de slugs e idempotencia del seeder.
+     - Total: 63 pruebas pasando en Laravel (348 aserciones). Compilación de Next.js sin errores. Studio y GLBs intactos.
 
 ---
 

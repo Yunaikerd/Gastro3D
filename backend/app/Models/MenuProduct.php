@@ -19,6 +19,7 @@ class MenuProduct extends Model
         'category_id',
         'dish_model_id',
         'name',
+        'slug',
         'description',
         'price',
         'photo_url',
@@ -72,6 +73,27 @@ class MenuProduct extends Model
             } else {
                 $product->has_3d = false;
                 $product->ar_enabled = false;
+            }
+
+            // 3. Stable slug generation & collision avoidance within establishment
+            if (empty($product->attributes['slug']) && !empty($product->name)) {
+                $baseSlug = \Illuminate\Support\Str::slug($product->name);
+                $slugCandidate = $baseSlug;
+                $counter = 1;
+
+                while (
+                    static::where('establishment_id', $product->establishment_id)
+                        ->where('slug', $slugCandidate)
+                        ->when(!empty($product->id), function ($query) use ($product) {
+                            $query->where('id', '!=', $product->id);
+                        })
+                        ->exists()
+                ) {
+                    $counter++;
+                    $slugCandidate = "{$baseSlug}-{$counter}";
+                }
+
+                $product->slug = $slugCandidate;
             }
         });
     }
